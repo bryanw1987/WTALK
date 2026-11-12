@@ -643,22 +643,23 @@
       });
 
       // Publish local user presence
-      publishPresence();
+     function publishPresence() {
+      if (!state.db || !state.userId || state.isBanned) return;
+      const ch = state.currentChannel;
+      const currentUserUid = state.userId;
+      const callsign = state.userName;
 
-      // Signals Listener
-      const signalsRef = collection(state.db, 'artifacts', state.appId, 'public', 'data', `signals_ch${ch}`);
-      state.unsubscribeSignals = onSnapshot(signalsRef, (snapshot) => {
-        snapshot.docChanges().forEach(change => {
-          if (change.type === 'added') {
-            const signal = change.doc.data();
-            if (signal.to === state.userId) {
-              handleIncomingSignal(signal, change.doc.id);
-            }
-          }
-        });
-      }, (err) => {
-        logDiag(`Signals Error: ${err.message}`, 'error');
-      });
+      const docRef = doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${ch}`, currentUserUid);
+      
+      setDoc(docRef, { 
+        uid: currentUserUid, 
+        name: callsign, 
+        callsign: callsign,
+        isAdmin: state.isAdmin,
+        isTransmitting: state.isTransmitting,
+        status: 'online',
+        updatedAt: Date.now() 
+      }, { merge: true }).catch(err => logDiag(`Publish presence error: ${err.message}`, 'warn'));
     }
 
     function publishPresence() {
