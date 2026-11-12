@@ -753,17 +753,25 @@
       };
 
       pc.ontrack = (event) => {
-        logDiag(`Audio track received from ${peerId.substring(0, 6)}`);
-        let audioEl = document.getElementById(`audio_${peerId}`);
-        if (!audioEl) {
-          audioEl = document.createElement('audio');
-          audioEl.id = `audio_${peerId}`;
-          audioEl.autoplay = true;
-          elements.remoteAudioContainer.appendChild(audioEl);
-        }
-        audioEl.srcObject = event.streams[0];
-      };
-
+    const stream = event.streams[0];
+    
+    let audioElement = document.getElementById('audio-' + stream.id);
+    
+    if (!audioElement) {
+        audioElement = document.createElement('audio');
+        audioElement.id = 'audio-' + stream.id;
+        audioElement.autoplay = true;
+        audioElement.playsInline = true; 
+        audioElement.style.display = 'none'; 
+        document.body.appendChild(audioElement);
+    }
+    
+    audioElement.srcObject = stream;
+    
+    audioElement.play().catch(error => {
+        console.warn("Browser blocked audio autoplay. User needs to tap screen.", error);
+    });
+};
       state.peerConnections[peerId] = pc;
       return pc;
     }
