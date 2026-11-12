@@ -1,1480 +1,559 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<html lang="en" class="h-full bg-slate-950 text-slate-100 select-none">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Tactical Web Walkie-Talkie (PTT)</title>
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tactical Comms - Walkie Talkie</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Font Awesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  
-  <!-- Google Fonts: Inter & Share Tech Mono (for radio digital screen display) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            mono: ['Share Tech Mono', 'monospace'],
-          },
-          colors: {
-            radio: {
-              gold: '#eab308',
-              amber: '#f59e0b',
-              green: '#22c55e',
-              lcd: '#1a2e1a',
-              lcdtext: '#39ff14',
-              bezel: '#0f172a',
-            }
-          },
-          boxShadow: {
-            'ptt-idle': '0 10px 25px -5px rgba(234, 179, 8, 0.3), inset 0 2px 4px rgba(255, 255, 255, 0.2)',
-            'ptt-active': '0 0 35px 8px rgba(239, 68, 68, 0.6), inset 0 4px 8px rgba(0, 0, 0, 0.4)',
-            'lcd-glow': 'inset 0 0 15px rgba(57, 255, 20, 0.2)',
-          }
-        }
-      }
-    }
-  </script>
-
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
   <style>
-    /* Prevent text selection and default touch behaviors on PTT button */
-    .no-select {
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      -khtml-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-      touch-action: manipulation;
-    }
-    
-    /* CRT Scanline overlay effect for LCD Screen */
-    .lcd-screen {
-      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-      background-size: 100% 4px, 6px 100%;
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&display=swap');
 
-    /* Pulse animation for active transmission */
-    @keyframes pulse-ring {
-      0% { transform: scale(0.95); opacity: 0.8; }
-      50% { transform: scale(1.05); opacity: 0.4; }
-      100% { transform: scale(0.95); opacity: 0.8; }
+    body {
+      font-family: 'Chakra Petch', sans-serif;
     }
-    .animate-pulse-ring {
-      animation: pulse-ring 1.8s infinite ease-in-out;
+    .mono-font {
+      font-family: 'Share Tech Mono', monospace;
+    }
+    /* PTT Pulse Animation */
+    @keyframes ptt-pulse {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .ptt-active {
+      animation: ptt-pulse 1.5s infinite;
     }
   </style>
 </head>
-<body class="h-full flex flex-col font-sans antialiased bg-slate-950 text-slate-100 select-none overflow-x-hidden">
+<body class="h-full flex flex-col items-center justify-center p-2 sm:p-4 bg-slate-950 overflow-hidden">
 
-  <!-- AUTHENTICATION / SETUP OVERLAY MODAL -->
-  <div id="authOverlay" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md transition-opacity duration-300">
-    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 space-y-6">
-      
-      <div class="text-center space-y-2">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-2xl mb-1">
-          <i class="fa-solid fa-walkie-talkie"></i>
-        </div>
-        <h2 class="text-2xl font-bold tracking-tight text-white">TACTICAL COMM-LINK</h2>
-        <p class="text-sm text-slate-400">WebRTC Half-Duplex Push-to-Talk Radio</p>
+  <!-- Main Walkie-Talkie Shell -->
+  <div class="w-full max-w-md bg-slate-900 border-2 border-slate-700 rounded-3xl shadow-2xl flex flex-col overflow-hidden relative" style="height: 92vh; max-height: 850px;">
+    
+    <!-- Top Hardware Header & Antenna Stub -->
+    <div class="bg-slate-850 border-b border-slate-800 p-3 flex items-center justify-between text-xs font-semibold text-slate-400">
+      <div class="flex items-center space-x-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+        <span class="tracking-widest text-emerald-400 uppercase font-bold">TAC-COM v2.4</span>
       </div>
+      <div id="micStatusBadge" class="flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[11px]">
+        <i data-lucide="mic-off" class="w-3.5 h-3.5"></i>
+        <span id="micStatusText">Mic Unverified</span>
+      </div>
+    </div>
 
-      <div class="space-y-4">
+    <!-- Main Display Screen (LCD Style) -->
+    <div class="m-3 p-3 bg-slate-950 border border-emerald-500/30 rounded-xl shadow-inner flex flex-col justify-between relative overflow-hidden">
+      <!-- Glow background effect -->
+      <div class="absolute -top-10 -left-10 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+      <!-- Top Line: Channel & Admin status -->
+      <div class="flex justify-between items-start mb-2">
         <div>
-          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Operator Callsign / Name</label>
-          <div class="relative">
-            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
-              <i class="fa-solid fa-id-badge"></i>
-            </span>
-            <input type="text" id="callsignInput" placeholder="e.g. Eagle-One" maxlength="16" 
-              class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 font-mono text-lg">
+          <div class="text-[10px] text-emerald-600 uppercase tracking-widest font-bold">FREQUENCY / CHAN</div>
+          <div class="flex items-baseline space-x-2">
+            <span id="lcdChannelNum" class="text-3xl font-black text-emerald-400 mono-font">CH-1</span>
+            <span id="lcdFreq" class="text-xs text-emerald-600 mono-font">462.5625 MHz</span>
           </div>
         </div>
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Primary Frequency Band</label>
-          <select id="initialChannelSelect" class="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 font-mono">
-            <option value="1">CH 1 - 462.5625 MHz (Channel 1)</option>
-            <option value="2">CH 2 - 462.5875 MHz (Channel 2)</option>
-            <option value="3">CH 3 - 462.6125 MHz (Channel 3)</option>
-            <option value="4">CH 4 - 462.6375 MHz (Channel 4)</option>
-            <option value="5">CH 5 - 462.6625 MHz (Channel 5)</option>
-            <option value="6">CH 6 - 462.6875 MHz (Channel 6)</option>
-            <option value="7">CH 7 - 462.7125 MHz (Channel 7)</option>
-            <option value="8">CH 8 - 467.5625 MHz (Channel 8)</option>
-          </select>
-        </div>
-
-        <!-- Audio Device Check -->
-        <div class="p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl flex items-center justify-between text-xs">
-          <div class="flex items-center space-x-2 text-slate-300">
-            <i class="fa-solid fa-microphone text-amber-500"></i>
-            <span>Microphone Access Required</span>
-          </div>
-          <span id="micPermissionStatus" class="px-2 py-1 rounded text-[10px] font-semibold bg-slate-800 text-slate-400">NOT VERIFIED</span>
+        <div id="adminBadge" class="hidden px-2 py-1 bg-red-600/20 border border-red-500/50 rounded text-red-400 text-[10px] font-bold tracking-wider flex items-center space-x-1">
+          <i data-lucide="shield-alert" class="w-3 h-3"></i>
+          <span>ADMIN ACCESS</span>
         </div>
       </div>
 
-      <button id="btnConnect" class="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl shadow-lg shadow-amber-500/20 active:scale-[0.98] transition duration-150 flex items-center justify-center space-x-2">
-        <i class="fa-solid fa-power-off text-sm"></i>
-        <span>INITIALIZE RADIO LINK</span>
+      <!-- Live User Identity Display -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded p-2 mb-2 flex justify-between items-center text-xs">
+        <div class="flex items-center space-x-2 overflow-hidden">
+          <i data-lucide="user" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>
+          <span id="currentUserDisplay" class="font-bold text-slate-200 truncate">Operator</span>
+        </div>
+        <button id="editNameBtn" class="text-[10px] text-emerald-400 hover:underline flex-shrink-0 ml-2">Change</button>
+      </div>
+
+      <!-- Audio Meter / Visualizer Canvas -->
+      <div class="h-10 bg-slate-900 rounded border border-emerald-950 p-1 flex items-center justify-center relative">
+        <canvas id="audioVisualizer" class="w-full h-full"></canvas>
+        <div id="visualizerOverlayText" class="absolute inset-0 flex items-center justify-center text-[11px] text-slate-500 font-bold uppercase tracking-wider pointer-events-none">
+          STANDBY
+        </div>
+      </div>
+    </div>
+
+    <!-- Microphone Setup / Troubleshooting Warning (Visible if mic needed) -->
+    <div id="micBanner" class="mx-3 mb-2 p-2.5 bg-amber-950/40 border border-amber-600/40 rounded-lg text-amber-200 text-xs flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
+        <span>Mic permission required to transmit.</span>
+      </div>
+      <button id="requestMicBtn" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-[11px] rounded transition">
+        Enable Mic
       </button>
+    </div>
 
-      <p class="text-center text-[11px] text-slate-500">
-        Secured with Firebase Auth & WebRTC P2P Audio Encryption
-      </p>
+    <!-- Banned Notice (Hidden by default) -->
+    <div id="bannedBanner" class="hidden mx-3 mb-2 p-3 bg-red-950 border border-red-600 rounded-lg text-red-200 text-xs text-center font-bold">
+      🚫 YOU HAVE BEEN BANNED FROM THIS CHANNEL BY ADMIN
+    </div>
+
+    <!-- Channel Selector Buttons (CH 1 - CH 8) -->
+    <div class="px-3 mb-2">
+      <div class="text-[10px] font-bold text-slate-500 uppercase mb-1 tracking-wider">Select Channel</div>
+      <div class="grid grid-cols-4 gap-1.5" id="channelButtonsContainer">
+        <!-- Generated JS channels 1 to 8 -->
+      </div>
+    </div>
+
+    <!-- Active Channel Roster / User List -->
+    <div class="flex-1 px-3 overflow-hidden flex flex-col mb-2">
+      <div class="flex justify-between items-center mb-1">
+        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Active Operators</span>
+        <span id="userCount" class="text-[10px] font-mono text-emerald-500">1 Online</span>
+      </div>
+      <div id="userRoster" class="flex-1 overflow-y-auto space-y-1 pr-1 bg-slate-950/40 rounded-lg p-2 border border-slate-800">
+        <!-- Roster items populated dynamically -->
+      </div>
+    </div>
+
+    <!-- Push-To-Talk (PTT) Transmitter Section -->
+    <div class="bg-slate-950 p-4 border-t border-slate-800 flex flex-col items-center justify-center relative">
+      <div class="text-[10px] text-slate-500 font-mono mb-2 uppercase tracking-widest text-center">
+        Hold to Transmit ( Spacebar or Button )
+      </div>
+
+      <!-- Big Tactile PTT Button -->
+      <button id="pttBtn" class="w-28 h-28 rounded-full bg-gradient-to-b from-red-500 via-red-600 to-red-800 text-white font-black text-lg tracking-wider border-4 border-red-900/60 shadow-lg active:scale-95 transition-transform flex flex-col items-center justify-center space-y-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+        <i data-lucide="radio" class="w-8 h-8"></i>
+        <span>PTT</span>
+      </button>
     </div>
   </div>
 
-  <!-- MAIN APP CONTAINER -->
-  <div class="flex-1 flex flex-col max-w-7xl w-full mx-auto p-2 sm:p-4 md:p-6 gap-4">
-
-    <!-- TOP NAV / HEADER -->
-    <header class="bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 flex items-center justify-between shadow-lg">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500">
-          <i class="fa-solid fa-radio text-lg"></i>
-        </div>
-        <div>
-          <h1 class="text-base font-bold tracking-tight text-white flex items-center space-x-2">
-            <span>TAC-COMM RF-80</span>
-            <span class="text-[10px] bg-slate-800 text-amber-400 px-2 py-0.5 rounded border border-amber-500/20 font-mono">PTT v2.4</span>
-          </h1>
-          <p class="text-xs text-slate-400 flex items-center space-x-2">
-            <span id="headerUserCallsign" class="font-mono text-amber-500 font-semibold">Offline</span>
-            <span>•</span>
-            <span id="headerStatusText" class="text-slate-400">Ready</span>
-          </p>
-        </div>
+  <!-- Name Input Modal -->
+  <div id="nameModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl p-5 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-bold text-slate-100 flex items-center space-x-2">
+          <i data-lucide="shield" class="w-5 h-5 text-emerald-400"></i>
+          <span>Comms Call-Sign</span>
+        </h3>
+      </div>
+      <p class="text-xs text-slate-400">Enter your operator call-sign or full name to join the walkie-talkie frequency.</p>
+      
+      <div>
+        <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1">Operator Name</label>
+        <input type="text" id="usernameInput" value="Bryan Wedekind" placeholder="e.g. Bryan Wedekind" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500" />
+        <p class="text-[10px] text-slate-500 mt-1">Tip: Use <b>Bryan Wedekind</b> for Admin Rights.</p>
       </div>
 
-      <!-- Quick Header Controls -->
-      <div class="flex items-center space-x-2 sm:space-x-4">
-        <!-- Roger Beep Toggle -->
-        <button id="btnToggleRogerBeep" class="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:border-slate-700 flex items-center space-x-1.5 transition">
-          <i id="rogerBeepIcon" class="fa-solid fa-volume-high text-amber-500"></i>
-          <span class="hidden sm:inline">ROGER BEEP:</span>
-          <span id="rogerBeepState" class="font-mono text-amber-400">ON</span>
-        </button>
-
-        <!-- Squelch Switch -->
-        <button id="btnToggleSquelch" class="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:border-slate-700 flex items-center space-x-1.5 transition">
-          <i class="fa-solid fa-sliders text-amber-500"></i>
-          <span class="hidden sm:inline">NOISE SQUELCH:</span>
-          <span id="squelchState" class="font-mono text-amber-400">AUTO</span>
-        </button>
-
-        <!-- User Logout / Switch callsign -->
-        <button id="btnDisconnect" class="p-2 bg-slate-800/80 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 rounded-xl transition" title="Disconnect Radio">
-          <i class="fa-solid fa-power-off"></i>
-        </button>
-      </div>
-    </header>
-
-    <!-- MAIN BODY GRID (Walkie Talkie Hardware + Sidebar) -->
-    <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch min-h-0">
-
-      <!-- LEFT / CENTER COLUMN: WALKIE TALKIE HARDWARE DASHBOARD (8 Cols) -->
-      <main class="lg:col-span-7 xl:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 flex flex-col justify-between shadow-2xl relative overflow-hidden">
-        
-        <!-- Background subtle mesh grid -->
-        <div class="absolute inset-0 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px] opacity-20 pointer-events-none"></div>
-
-        <!-- RADIO TOP LCD STATUS SCREEN -->
-        <div class="relative z-10 space-y-4">
-          <div class="bg-slate-950 border-2 border-slate-800 rounded-xl p-4 shadow-inner relative overflow-hidden">
-            <!-- Green LCD CRT Screen backdrop -->
-            <div class="absolute inset-0 bg-emerald-950/30 lcd-screen pointer-events-none"></div>
-            
-            <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-900/40 pb-3 mb-3">
-              <!-- Channel Display -->
-              <div class="flex items-baseline space-x-3">
-                <span class="text-xs font-mono uppercase tracking-widest text-emerald-600 font-bold">CHANNEL</span>
-                <span id="lcdChannelNum" class="text-4xl font-extrabold font-mono text-emerald-400 tracking-wider">CH 01</span>
-                <span id="lcdFrequency" class="text-sm font-mono text-emerald-500/80">462.5625 MHz</span>
-              </div>
-
-              <!-- Signal & Battery Bar -->
-              <div class="flex items-center space-x-4 text-emerald-400 font-mono text-xs">
-                <div class="flex items-center space-x-1" title="Signal Strength">
-                  <span>SIG</span>
-                  <div class="flex items-end space-x-0.5 h-3">
-                    <span class="w-1 h-1 bg-emerald-400 rounded-xs"></span>
-                    <span class="w-1 h-2 bg-emerald-400 rounded-xs"></span>
-                    <span class="w-1 h-3 bg-emerald-400 rounded-xs"></span>
-                    <span class="w-1 h-3.5 bg-emerald-400/40 rounded-xs"></span>
-                  </div>
-                </div>
-                <div class="flex items-center space-x-1">
-                  <span>MODE</span>
-                  <span class="px-1.5 py-0.5 bg-emerald-900/50 border border-emerald-500/40 text-emerald-300 rounded text-[10px]">FM-HD</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- TRANSMISSION STATUS INDICATOR BANNER -->
-            <div id="lcdStatusBanner" class="relative z-10 bg-emerald-950/60 border border-emerald-500/30 rounded-lg p-2.5 flex items-center justify-between font-mono">
-              <div class="flex items-center space-x-2">
-                <span id="lcdStatusDot" class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                <span id="lcdStatusText" class="text-sm font-bold text-emerald-300 uppercase">STANDBY // CHANNEL CLEAR</span>
-              </div>
-              <span id="lcdSpeakerName" class="text-xs text-emerald-400/80 truncate max-w-[150px]"></span>
-            </div>
-
-            <!-- LIVE AUDIO VISUALIZER CANVAS -->
-            <div class="relative z-10 mt-3 h-14 bg-slate-950/80 border border-emerald-900/50 rounded flex items-center overflow-hidden">
-              <canvas id="audioVisualizer" class="w-full h-full block"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <!-- CENTER: PUSH-TO-TALK MASSIVE HARDWARE BUTTON -->
-        <div class="relative z-10 my-6 flex flex-col items-center justify-center space-y-4 no-select">
-          
-          <!-- Outer PTT Ring / Halo Indicator -->
-          <div class="relative flex items-center justify-center">
-            
-            <div id="pttPulseRing" class="absolute -inset-4 rounded-full bg-amber-500/20 opacity-0 transition-opacity duration-300"></div>
-
-            <!-- Main Interactive PTT Button -->
-            <button id="btnPTT" class="relative w-48 h-48 sm:w-56 sm:h-56 rounded-full bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 border-4 border-amber-500/80 shadow-ptt-idle active:scale-[0.97] transition-all duration-100 flex flex-col items-center justify-center text-center cursor-pointer group focus:outline-none">
-              
-              <!-- Inner Metallic Rim -->
-              <div class="absolute inset-2 rounded-full border border-slate-700/60 pointer-events-none"></div>
-
-              <!-- Center Icon & Labels -->
-              <div class="space-y-2 pointer-events-none">
-                <div id="pttIconContainer" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-2xl sm:text-3xl mx-auto transition-transform group-hover:scale-105">
-                  <i id="pttIcon" class="fa-solid fa-microphone"></i>
-                </div>
-                
-                <div class="space-y-0.5">
-                  <span id="pttMainLabel" class="block text-lg sm:text-xl font-extrabold tracking-wider text-amber-400 font-mono">PUSH TO TALK</span>
-                  <span id="pttSubLabel" class="block text-[11px] text-slate-400 font-medium tracking-normal">HOLD DOWN MOUSE OR [SPACEBAR]</span>
-                </div>
-              </div>
-            </button>
-          </div>
-
-          <!-- Quick Tip -->
-          <p class="text-xs text-slate-400 flex items-center space-x-2 font-mono">
-            <kbd class="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-400 font-bold text-[11px]">SPACEBAR</kbd>
-            <span>Hold to Transmit Voice</span>
-          </p>
-        </div>
-
-        <!-- HARDWARE CONTROLS FOOTER: Volume Slider & Mic Input Meter -->
-        <div class="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-800">
-          
-          <!-- RX Volume Control -->
-          <div class="bg-slate-950/60 border border-slate-800 p-3 rounded-xl space-y-1.5">
-            <div class="flex items-center justify-between text-xs text-slate-400">
-              <span class="font-semibold flex items-center space-x-1.5">
-                <i class="fa-solid fa-volume-high text-amber-500"></i>
-                <span>RECEIVER VOLUME</span>
-              </span>
-              <span id="volumeValueText" class="font-mono text-amber-400 font-bold">100%</span>
-            </div>
-            <input type="range" id="rxVolumeSlider" min="0" max="100" value="100" class="w-full accent-amber-500 bg-slate-800 rounded-lg h-2 cursor-pointer">
-          </div>
-
-          <!-- Mic Sensitivity / Input Gain -->
-          <div class="bg-slate-950/60 border border-slate-800 p-3 rounded-xl space-y-1.5">
-            <div class="flex items-center justify-between text-xs text-slate-400">
-              <span class="font-semibold flex items-center space-x-1.5">
-                <i class="fa-solid fa-microphone-lines text-amber-500"></i>
-                <span>MIC INPUT GAIN</span>
-              </span>
-              <span id="micGainValueText" class="font-mono text-amber-400 font-bold">100%</span>
-            </div>
-            <input type="range" id="micGainSlider" min="0" max="150" value="100" class="w-full accent-amber-500 bg-slate-800 rounded-lg h-2 cursor-pointer">
-          </div>
-        </div>
-      </main>
-
-      <!-- RIGHT COLUMN: FREQUENCY CHANNELS & MEMBERS DIRECTORY (4-5 Cols) -->
-      <aside class="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
-        
-        <!-- CHANNEL SELECTOR PANEL -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-2">
-              <i class="fa-solid fa-tower-cell text-amber-500"></i>
-              <span>PRESET FREQUENCIES</span>
-            </h2>
-            <span class="text-[11px] font-mono text-slate-500">FRS / GMRS</span>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2" id="channelGrid">
-            <!-- Channel Buttons rendered dynamically via JS -->
-          </div>
-        </div>
-
-        <!-- ROOM MEMBERS / ACTIVE OPERATORS DIRECTORY -->
-        <div class="flex-1 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col overflow-hidden min-h-[260px]">
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-2">
-              <i class="fa-solid fa-users text-amber-500"></i>
-              <span>ACTIVE OPERATORS (<span id="operatorCount">0</span>)</span>
-            </h2>
-            <span id="roomNetStatus" class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">P2P MESH</span>
-          </div>
-
-          <!-- Operator List Container -->
-          <div id="operatorList" class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-            <!-- Empty state default -->
-            <div id="emptyOperatorsState" class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500 space-y-2">
-              <i class="fa-solid fa-radio text-3xl opacity-40"></i>
-              <p class="text-xs">No other operators tuned into this frequency.</p>
-              <p class="text-[11px] text-slate-600">Open a second tab to test WebRTC audio streaming!</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- COMM LOG / ACTIVITY STREAM -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 shadow-xl h-36 flex flex-col">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
-              <i class="fa-solid fa-list-check text-amber-500"></i>
-              <span>TRANSMISSION LOG</span>
-            </span>
-            <button id="btnClearLog" class="text-[10px] text-slate-500 hover:text-slate-300">CLEAR</button>
-          </div>
-          <div id="commLog" class="flex-1 overflow-y-auto text-[11px] font-mono space-y-1 text-slate-400 pr-1">
-            <div class="text-slate-600 italic">[SYSTEM] Radio system initialized.</div>
-          </div>
-        </div>
-
-      </aside>
-
+      <button id="saveNameBtn" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded-lg transition text-sm">
+        Connect to Comms
+      </button>
     </div>
   </div>
 
-  <!-- Audio Elements Container for remote peers -->
-  <div id="remoteAudioContainer" class="hidden"></div>
-
-  <!-- FIREBASE & APPLICATION LOGIC -->
+  <!-- Firebase & App Script Integration -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { 
-      getAuth, 
-      signInAnonymously, 
-      signInWithCustomToken, 
-      onAuthStateChanged,
-      updateProfile 
-    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { 
-      getFirestore, 
-      doc, 
-      setDoc, 
-      deleteDoc, 
-      onSnapshot, 
-      collection, 
-      addDoc, 
-      getDocs, 
-      query,
-      serverTimestamp 
-    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // Global Environment & Configuration Fallbacks
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'walkie-talkie-app';
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    // Initialize Lucide Icons
+    lucide.createIcons();
 
-    // FRS Channel Preset Frequencies (Generic Channel Names)
-    const CHANNELS = [
-      { id: 1, freq: '462.5625', name: 'Channel 1' },
-      { id: 2, freq: '462.5875', name: 'Channel 2' },
-      { id: 3, freq: '462.6125', name: 'Channel 3' },
-      { id: 4, freq: '462.6375', name: 'Channel 4' },
-      { id: 5, freq: '462.6625', name: 'Channel 5' },
-      { id: 6, freq: '462.6875', name: 'Channel 6' },
-      { id: 7, freq: '462.7125', name: 'Channel 7' },
-      { id: 8, freq: '467.5625', name: 'Channel 8' },
-    ];
-
-    // State Variables
-    let app, auth, db;
-    let currentUser = null;
-    let myCallsign = "Operator";
-    let currentChannel = 1;
-    let isTransmitting = false;
-    let isChannelBusy = false;
-    let isBanned = false;
-    let currentTransmitterUid = null;
-    let currentTransmitterName = "";
-    let rogerBeepEnabled = true;
-    let squelchAuto = true;
-    let rxVolume = 1.0;
-    let micGainLevel = 1.0;
-    const bannedUsers = new Set();
-
-    // Web Audio Context & Nodes
-    let audioCtx = null;
-    let micStream = null;
-    let micSourceNode = null;
-    let micGainNode = null;
-    let micAnalyser = null;
-    let animFrameId = null;
-
-    // WebRTC Peer Connections & Signaling
-    const peerConnections = {}; // uid -> RTCPeerConnection
-    const remoteStreams = {}; // uid -> MediaStream
-    let presenceUnsub = null;
-    let signalsUnsub = null;
-    let banUnsub = null;
-    let broadcastChannel = null;
-
-    // RTC Configuration with public STUN servers
-    const rtcConfig = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
+    // App state
+    const state = {
+      appId: typeof __app_id !== 'undefined' ? __app_id : 'walkie-talkie-app',
+      currentChannel: 1,
+      userName: 'Bryan Wedekind',
+      userId: 'user_' + Math.random().toString(36).substring(2, 9),
+      isAdmin: false,
+      isTransmitting: false,
+      isMicVerified: false,
+      audioStream: null,
+      audioContext: null,
+      analyserNode: null,
+      users: {},
+      bannedUsers: new Set(),
+      db: null,
+      auth: null
     };
 
     // DOM Elements
-    const authOverlay = document.getElementById('authOverlay');
-    const callsignInput = document.getElementById('callsignInput');
-    const initialChannelSelect = document.getElementById('initialChannelSelect');
-    const btnConnect = document.getElementById('btnConnect');
-    const micPermissionStatus = document.getElementById('micPermissionStatus');
+    const elements = {
+      lcdChannelNum: document.getElementById('lcdChannelNum'),
+      lcdFreq: document.getElementById('lcdFreq'),
+      adminBadge: document.getElementById('adminBadge'),
+      currentUserDisplay: document.getElementById('currentUserDisplay'),
+      editNameBtn: document.getElementById('editNameBtn'),
+      audioVisualizer: document.getElementById('audioVisualizer'),
+      visualizerOverlayText: document.getElementById('visualizerOverlayText'),
+      micBanner: document.getElementById('micBanner'),
+      requestMicBtn: document.getElementById('requestMicBtn'),
+      micStatusBadge: document.getElementById('micStatusBadge'),
+      micStatusText: document.getElementById('micStatusText'),
+      bannedBanner: document.getElementById('bannedBanner'),
+      channelButtonsContainer: document.getElementById('channelButtonsContainer'),
+      userRoster: document.getElementById('userRoster'),
+      userCount: document.getElementById('userCount'),
+      pttBtn: document.getElementById('pttBtn'),
+      nameModal: document.getElementById('nameModal'),
+      usernameInput: document.getElementById('usernameInput'),
+      saveNameBtn: document.getElementById('saveNameBtn')
+    };
 
-    const headerUserCallsign = document.getElementById('headerUserCallsign');
-    const headerStatusText = document.getElementById('headerStatusText');
-    const btnDisconnect = document.getElementById('btnDisconnect');
-    const btnToggleRogerBeep = document.getElementById('btnToggleRogerBeep');
-    const rogerBeepState = document.getElementById('rogerBeepState');
-    const rogerBeepIcon = document.getElementById('rogerBeepIcon');
-    const btnToggleSquelch = document.getElementById('btnToggleSquelch');
-    const squelchState = document.getElementById('squelchState');
+    // Frequencies for channels 1 - 8
+    const channelFrequencies = [
+      '462.5625 MHz', '462.5875 MHz', '462.6125 MHz', '462.6375 MHz',
+      '462.6625 MHz', '462.6875 MHz', '462.7125 MHz', '467.5625 MHz'
+    ];
 
-    const lcdChannelNum = document.getElementById('lcdChannelNum');
-    const lcdFrequency = document.getElementById('lcdFrequency');
-    const lcdStatusBanner = document.getElementById('lcdStatusBanner');
-    const lcdStatusDot = document.getElementById('lcdStatusDot');
-    const lcdStatusText = document.getElementById('lcdStatusText');
-    const lcdSpeakerName = document.getElementById('lcdSpeakerName');
-
-    const btnPTT = document.getElementById('btnPTT');
-    const pttPulseRing = document.getElementById('pttPulseRing');
-    const pttIconContainer = document.getElementById('pttIconContainer');
-    const pttIcon = document.getElementById('pttIcon');
-    const pttMainLabel = document.getElementById('pttMainLabel');
-    const pttSubLabel = document.getElementById('pttSubLabel');
-
-    const rxVolumeSlider = document.getElementById('rxVolumeSlider');
-    const volumeValueText = document.getElementById('volumeValueText');
-    const micGainSlider = document.getElementById('micGainSlider');
-    const micGainValueText = document.getElementById('micGainValueText');
-
-    const channelGrid = document.getElementById('channelGrid');
-    const operatorList = document.getElementById('operatorList');
-    const emptyOperatorsState = document.getElementById('emptyOperatorsState');
-    const operatorCount = document.getElementById('operatorCount');
-    const commLog = document.getElementById('commLog');
-    const btnClearLog = document.getElementById('btnClearLog');
-    const canvas = document.getElementById('audioVisualizer');
-    const canvasCtx = canvas.getContext('2d');
-
-    // Initialize Application
-    window.addEventListener('DOMContentLoaded', async () => {
-      renderChannelGrid();
-      setupEventListeners();
-      initFallbackBroadcastChannel();
-      
-      // Auto-fill random callsign
-      callsignInput.value = `Alpha-${Math.floor(100 + Math.random() * 900)}`;
-
-      // Try pre-requesting microphone access indicator
+    // Sound FX Generator using Web Audio API (Chirps & Beeps)
+    function playBeep(type = 'start') {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach(track => track.stop());
-        micPermissionStatus.textContent = "READY";
-        micPermissionStatus.className = "px-2 py-1 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-      } catch (err) {
-        micPermissionStatus.textContent = "ALLOW PERMISSION";
-        micPermissionStatus.className = "px-2 py-1 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30";
-      }
-    });
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
 
-    // Render Preset Frequency Grid Buttons
-    function renderChannelGrid() {
-      channelGrid.innerHTML = '';
-      CHANNELS.forEach(ch => {
-        const isSelected = ch.id === currentChannel;
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = `p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
-          isSelected 
-            ? 'bg-amber-500/10 border-amber-500 text-amber-400 shadow-sm' 
-            : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-        }`;
-        btn.onclick = () => switchChannel(ch.id);
-        btn.innerHTML = `
-          <div class="flex items-center justify-between w-full">
-            <span class="font-mono font-bold text-xs">CH 0${ch.id}</span>
-            <span class="text-[10px] font-mono opacity-60">${ch.freq}</span>
-          </div>
-          <span class="text-[11px] font-medium truncate mt-1 ${isSelected ? 'text-amber-300' : 'text-slate-500'}">${ch.name}</span>
-        `;
-        channelGrid.appendChild(btn);
+        if (type === 'start') {
+          osc.frequency.setValueAtTime(880, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.08);
+          gain.gain.setValueAtTime(0.15, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.08);
+        } else {
+          osc.frequency.setValueAtTime(1200, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.12);
+          gain.gain.setValueAtTime(0.15, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.12);
+        }
+      } catch (e) {
+        // AudioContext silent fallback
+      }
+    }
+
+    // Initialize Firebase gracefully
+    async function initFirebase() {
+      try {
+        let config = {};
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+          config = JSON.parse(__firebase_config);
+        } else {
+          // Dummy fallback config for demo mode
+          config = {
+            apiKey: "demo-api-key",
+            authDomain: "demo-app.firebaseapp.com",
+            projectId: "demo-app"
+          };
+        }
+
+        const app = initializeApp(config);
+        state.db = getFirestore(app);
+        state.auth = getAuth(app);
+
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(state.auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(state.auth);
+        }
+        
+        setupFirestoreSync();
+      } catch (err) {
+        console.warn("Firebase running in single-device local mode:", err);
+        setupLocalFallbackRoster();
+      }
+    }
+
+    // Firestore Sync with proper path structure
+    function setupFirestoreSync() {
+      if (!state.db) return;
+      const channelRef = collection(state.db, 'artifacts', state.appId, 'public', 'data', `channel_${state.currentChannel}`);
+      
+      onSnapshot(channelRef, (snapshot) => {
+        state.users = {};
+        snapshot.forEach(doc => {
+          state.users[doc.id] = doc.data();
+        });
+        updateRosterUI();
+      }, (err) => {
+        console.warn("Firestore listener error, using internal memory:", err);
       });
+
+      // Announce self
+      publishUserPresence();
     }
 
-    // Switch Walkie Talkie Channel Frequency
-    async function switchChannel(newChannelId) {
-      if (currentChannel === newChannelId) return;
-      if (isTransmitting) {
-        stopTransmission();
-      }
-
-      playTone('channel_switch');
-      currentChannel = newChannelId;
-      const chData = CHANNELS.find(c => c.id === currentChannel);
-      
-      lcdChannelNum.textContent = `CH 0${currentChannel}`;
-      lcdFrequency.textContent = `${chData.freq} MHz`;
-      
-      renderChannelGrid();
-      addLogEntry(`Switched frequency to CH 0${currentChannel} (${chData.freq} MHz)`);
-
-      // Re-initialize channel presence and subscriptions
-      if (currentUser) {
-        await cleanupPeerConnections();
-        await setupFirebasePresenceAndSignals();
-      }
+    function publishUserPresence() {
+      if (!state.db || !state.auth?.currentUser) return;
+      const userDocRef = doc(state.db, 'artifacts', state.appId, 'public', 'data', `channel_${state.currentChannel}`, state.userId);
+      setDoc(userDocRef, {
+        id: state.userId,
+        name: state.userName,
+        isTransmitting: state.isTransmitting,
+        lastActive: Date.now()
+      }, { merge: true }).catch(err => console.log("Presence sync err:", err));
     }
 
-    // Initialize Local Audio Stream & Web Audio Synthesizer
-    async function initAudioEngine() {
-      if (!audioCtx) {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        audioCtx = new AudioContext();
-      }
-      if (audioCtx.state === 'suspended') {
-        await audioCtx.resume();
-      }
-
-      if (!micStream) {
-        micStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          }
-        });
-
-        micSourceNode = audioCtx.createMediaStreamSource(micStream);
-        micGainNode = audioCtx.createGain();
-        micAnalyser = audioCtx.createAnalyser();
-        micAnalyser.fftSize = 64;
-
-        micGainNode.gain.value = micGainLevel;
-        micSourceNode.connect(micGainNode);
-        micGainNode.connect(micAnalyser);
-
-        // Initially disable local mic audio tracks so we don't stream until PTT pressed
-        micStream.getAudioTracks().forEach(track => {
-          track.enabled = false;
-        });
-      }
-
-      startVisualizer();
+    function setupLocalFallbackRoster() {
+      state.users[state.userId] = {
+        id: state.userId,
+        name: state.userName,
+        isTransmitting: state.isTransmitting
+      };
+      updateRosterUI();
     }
 
-    // Realistic Web Audio API Sound Effects Synthesizer
-    function playTone(type) {
-      if (!audioCtx) return;
-
+    // Check & Request Microphone Access
+    async function requestMicrophone() {
       try {
-        const now = audioCtx.currentTime;
+        state.audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        state.isMicVerified = true;
+        
+        // Mute stream tracks by default until PTT pressed
+        state.audioStream.getAudioTracks().forEach(track => track.enabled = false);
 
-        if (type === 'ptt_start') {
-          // MDC1200 style dual-tone burst
-          const osc1 = audioCtx.createOscillator();
-          const osc2 = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
+        // Visualizer Setup
+        state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = state.audioContext.createMediaStreamSource(state.audioStream);
+        state.analyserNode = state.audioContext.createAnalyser();
+        state.analyserNode.fftSize = 64;
+        source.connect(state.analyserNode);
 
-          osc1.type = 'sine';
-          osc2.type = 'sine';
-          osc1.frequency.setValueAtTime(1200, now);
-          osc2.frequency.setValueAtTime(1800, now);
+        // UI update for Mic
+        elements.micBanner.classList.add('hidden');
+        elements.micStatusBadge.className = "flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px]";
+        elements.micStatusText.textContent = "Mic Ready";
+        elements.micStatusBadge.innerHTML = `<i data-lucide="mic" class="w-3.5 h-3.5"></i><span>Mic Ready</span>`;
+        lucide.createIcons();
 
-          gain.gain.setValueAtTime(0.15, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-
-          osc1.connect(gain);
-          osc2.connect(gain);
-          gain.connect(audioCtx.destination);
-
-          osc1.start(now);
-          osc2.start(now);
-          osc1.stop(now + 0.08);
-          osc2.stop(now + 0.08);
-        } 
-        else if (type === 'roger_beep') {
-          if (!rogerBeepEnabled) return;
-          // Classic Motorola Roger Beep (1500Hz burst)
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
-
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(1540, now);
-
-          gain.gain.setValueAtTime(0.2, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-
-          osc.start(now);
-          osc.stop(now + 0.12);
-        }
-        else if (type === 'squelch') {
-          // Filtered White Noise burst mimicking analog radio tail noise ("Krr-chhk")
-          const bufferSize = audioCtx.sampleRate * 0.15; // 150ms
-          const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-          const data = buffer.getChannelData(0);
-          for (let i = 0; i < bufferSize; i++) {
-            data[i] = Math.random() * 2 - 1;
-          }
-
-          const noise = audioCtx.createBufferSource();
-          noise.buffer = buffer;
-
-          const filter = audioCtx.createBiquadFilter();
-          filter.type = 'bandpass';
-          filter.frequency.value = 1400;
-          filter.Q.value = 1.2;
-
-          const gain = audioCtx.createGain();
-          gain.gain.setValueAtTime(0.18, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-
-          noise.connect(filter);
-          filter.connect(gain);
-          gain.connect(audioCtx.destination);
-
-          noise.start(now);
-        }
-        else if (type === 'busy') {
-          // Low double buzz for channel busy error
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
-
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(320, now);
-          osc.frequency.setValueAtTime(320, now + 0.1);
-
-          gain.gain.setValueAtTime(0.2, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-
-          osc.start(now);
-          osc.stop(now + 0.25);
-        }
-        else if (type === 'channel_switch') {
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(800, now);
-          osc.frequency.exponentialRampToValueAtTime(1600, now + 0.05);
-          gain.gain.setValueAtTime(0.1, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-          osc.start(now);
-          osc.stop(now + 0.05);
-        }
+        startVisualizerAnimation();
+        return true;
       } catch (err) {
-        console.warn('Audio tone synthesis error:', err);
+        console.error("Microphone Access Denied:", err);
+        state.isMicVerified = false;
+        elements.micBanner.classList.remove('hidden');
+        elements.micStatusText.textContent = "Mic Blocked";
+        elements.micStatusBadge.className = "flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 text-[11px]";
+        return false;
       }
     }
 
-    // Audio Waveform & Spectrum Visualizer Loop
-    function startVisualizer() {
-      if (animFrameId) cancelAnimationFrame(animFrameId);
+    // Render Visualizer Bars
+    function startVisualizerAnimation() {
+      const canvas = elements.audioVisualizer;
+      const ctx = canvas.getContext('2d');
+      const dataArray = new Uint8Array(state.analyserNode ? state.analyserNode.frequencyBinCount : 16);
 
-      const bufferLength = micAnalyser ? micAnalyser.frequencyBinCount : 32;
-      const dataArray = new Uint8Array(bufferLength);
+      function render() {
+        requestAnimationFrame(render);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      function draw() {
-        animFrameId = requestAnimationFrame(draw);
-
-        const width = canvas.width = canvas.clientWidth;
-        const height = canvas.height = canvas.clientHeight;
-
-        canvasCtx.clearRect(0, 0, width, height);
-
-        if (micAnalyser && (isTransmitting || isChannelBusy)) {
-          micAnalyser.getByteFrequencyData(dataArray);
-
-          const barWidth = (width / bufferLength) * 2;
+        if (state.isTransmitting && state.analyserNode) {
+          state.analyserNode.getByteFrequencyData(dataArray);
+          const barWidth = (canvas.width / dataArray.length) * 1.5;
           let x = 0;
-
-          for (let i = 0; i < bufferLength; i++) {
-            const barHeight = (dataArray[i] / 255) * height;
-
-            if (isTransmitting) {
-              canvasCtx.fillStyle = '#f59e0b'; // Amber transmit
-            } else {
-              canvasCtx.fillStyle = '#39ff14'; // Green receive
-            }
-
-            canvasCtx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
+          for (let i = 0; i < dataArray.length; i++) {
+            const barHeight = (dataArray[i] / 255) * canvas.height;
+            ctx.fillStyle = '#10b981'; // Emerald 500
+            ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
             x += barWidth;
           }
-        } else {
-          // Idle ambient baseline wave
-          canvasCtx.strokeStyle = '#1e293b';
-          canvasCtx.lineWidth = 2;
-          canvasCtx.beginPath();
-          const sliceWidth = width / 10;
-          let x = 0;
-          for (let i = 0; i < 10; i++) {
-            const y = height / 2 + (Math.sin(Date.now() / 300 + i) * 2);
-            if (i === 0) canvasCtx.moveTo(x, y);
-            else canvasCtx.lineTo(x, y);
-            x += sliceWidth;
-          }
-          canvasCtx.stroke();
         }
       }
-      draw();
+      render();
     }
 
-    // Connect & Authenticate via Firebase
-    btnConnect.addEventListener('click', async () => {
-      myCallsign = callsignInput.value.trim() || `Alpha-${Math.floor(100 + Math.random() * 900)}`;
-      currentChannel = parseInt(initialChannelSelect.value, 10);
-
-      try {
-        await initAudioEngine();
-      } catch (err) {
-        alert("Microphone access is required for the Walkie-Talkie to work. Please grant mic permissions in your browser.");
+    // PTT Transmission Logic
+    function startTransmission() {
+      if (state.bannedUsers.has(state.userId)) return;
+      if (!state.isMicVerified) {
+        requestMicrophone();
         return;
       }
+      if (state.isTransmitting) return;
 
-      btnConnect.disabled = true;
-      btnConnect.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i><span>CONNECTING...</span>`;
+      state.isTransmitting = true;
+      playBeep('start');
 
-      await initFirebase();
-      
-      authOverlay.classList.add('opacity-0', 'pointer-events-none');
-      setTimeout(() => authOverlay.classList.add('hidden'), 300);
+      // Unmute audio tracks
+      if (state.audioStream) {
+        state.audioStream.getAudioTracks().forEach(track => track.enabled = true);
+      }
 
-      const isAdmin = myCallsign.trim() === 'Bryan Wedekind';
-      headerUserCallsign.innerHTML = `${myCallsign} ${isAdmin ? '<span class="text-[9px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded border border-rose-500/30">ADMIN</span>' : ''}`;
-      headerStatusText.textContent = "CONNECTED";
-      lcdChannelNum.textContent = `CH 0${currentChannel}`;
-      
-      const chData = CHANNELS.find(c => c.id === currentChannel);
-      lcdFrequency.textContent = `${chData.freq} MHz`;
+      // Visual adjustments
+      elements.pttBtn.classList.add('ptt-active', 'scale-95');
+      elements.visualizerOverlayText.textContent = "TRANSMITTING...";
+      elements.visualizerOverlayText.className = "absolute inset-0 flex items-center justify-center text-[11px] text-red-400 font-bold uppercase tracking-wider animate-pulse pointer-events-none";
 
-      renderChannelGrid();
-      addLogEntry(`Joined RF Frequency Net as [${myCallsign}]${isAdmin ? ' (Admin Privileges Active)' : ''}`);
-    });
+      publishUserPresence();
+      updateRosterUI();
+    }
 
-    // Initialize Firebase Auth & Firestore Signaling Engine
-    async function initFirebase() {
-      if (firebaseConfig) {
-        try {
-          app = initializeApp(firebaseConfig);
-          auth = getAuth(app);
-          db = getFirestore(app);
+    function stopTransmission() {
+      if (!state.isTransmitting) return;
 
-          // Authenticate with custom token if available, otherwise anonymous
-          if (initialAuthToken) {
-            await signInWithCustomToken(auth, initialAuthToken);
-          } else {
-            await signInAnonymously(auth);
-          }
+      state.isTransmitting = false;
+      playBeep('stop');
 
-          currentUser = auth.currentUser;
-          if (currentUser) {
-            await updateProfile(currentUser, { displayName: myCallsign });
-          }
-        } catch (err) {
-          console.error("Firebase init failed, falling back to local BroadcastChannel mesh:", err);
-          setupFallbackUser();
-        }
+      // Mute audio tracks again
+      if (state.audioStream) {
+        state.audioStream.getAudioTracks().forEach(track => track.enabled = false);
+      }
+
+      // Visual adjustments
+      elements.pttBtn.classList.remove('ptt-active', 'scale-95');
+      elements.visualizerOverlayText.textContent = "STANDBY";
+      elements.visualizerOverlayText.className = "absolute inset-0 flex items-center justify-center text-[11px] text-slate-500 font-bold uppercase tracking-wider pointer-events-none";
+
+      publishUserPresence();
+      updateRosterUI();
+    }
+
+    // Set & Validate User Identity & Admin Status
+    function setIdentity(name) {
+      state.userName = name.trim() || 'Operator';
+      elements.currentUserDisplay.textContent = state.userName;
+
+      // ADMIN MODE CHECK: Must match exactly 'Bryan Wedekind'
+      if (state.userName === 'Bryan Wedekind') {
+        state.isAdmin = true;
+        elements.adminBadge.classList.remove('hidden');
       } else {
-        setupFallbackUser();
+        state.isAdmin = false;
+        elements.adminBadge.classList.add('hidden');
       }
 
-      await setupFirebasePresenceAndSignals();
+      publishUserPresence();
+      updateRosterUI();
     }
 
-    function setupFallbackUser() {
-      currentUser = { uid: 'user-' + Math.random().toString(36).substring(2, 9), displayName: myCallsign };
-    }
-
-    // Presence & Signaling Subscriptions
-    async function setupFirebasePresenceAndSignals() {
-      if (!currentUser) return;
-
-      const uid = currentUser.uid;
-
-      // Register presence document
-      if (db) {
-        // Path Rule 1: /artifacts/{appId}/public/data/walkie_presence/{uid}
-        const presenceRef = doc(db, 'artifacts', appId, 'public', 'data', 'walkie_presence', uid);
-        await setDoc(presenceRef, {
-          uid: uid,
-          callsign: myCallsign,
-          channel: currentChannel,
-          talking: false,
-          lastSeen: Date.now()
-        }, { merge: true });
-
-        // Listen for banned list
-        // Path Rule 1: /artifacts/{appId}/public/data/walkie_banned
-        const banCol = collection(db, 'artifacts', appId, 'public', 'data', 'walkie_banned');
-        if (banUnsub) banUnsub();
-
-        banUnsub = onSnapshot(banCol, (snapshot) => {
-          snapshot.forEach(docSnap => {
-            const data = docSnap.data();
-            bannedUsers.add(data.uid);
-            if (data.uid === currentUser.uid) {
-              handleSelfBanned(data.bannedBy);
-            } else if (peerConnections[data.uid]) {
-              peerConnections[data.uid].close();
-              delete peerConnections[data.uid];
-            }
-          });
-        }, (err) => console.error("Ban snapshot error:", err));
-
-        // Listen for all operators on current channel
-        // Path Rule 1: /artifacts/{appId}/public/data/walkie_presence
-        const presenceCol = collection(db, 'artifacts', appId, 'public', 'data', 'walkie_presence');
-        if (presenceUnsub) presenceUnsub();
-
-        presenceUnsub = onSnapshot(presenceCol, (snapshot) => {
-          const activeOperators = [];
-          let currentChannelTalker = null;
-
-          snapshot.forEach(docSnap => {
-            const data = docSnap.data();
-            if (data.channel === currentChannel && !bannedUsers.has(data.uid)) {
-              activeOperators.push(data);
-              if (data.talking) {
-                currentChannelTalker = data;
-              }
-            }
-          });
-
-          updateOperatorsList(activeOperators);
-          handleChannelTalkingState(currentChannelTalker);
-        }, (err) => console.error("Presence snapshot error:", err));
-
-        // Listen for incoming WebRTC signals directed to me
-        // Path Rule 1: /artifacts/{appId}/public/data/walkie_signals
-        const signalsCol = collection(db, 'artifacts', appId, 'public', 'data', 'walkie_signals');
-        if (signalsUnsub) signalsUnsub();
-
-        signalsUnsub = onSnapshot(signalsCol, async (snapshot) => {
-          if (isBanned) return;
-          snapshot.docChanges().forEach(async (change) => {
-            if (change.type === 'added') {
-              const signal = change.doc.data();
-              if (signal.targetUid === uid && signal.channel === currentChannel && !bannedUsers.has(signal.senderUid)) {
-                await handleIncomingSignal(signal);
-                // Clean up processed signal
-                deleteDoc(change.doc.ref).catch(() => {});
-              }
-            }
-          });
-        }, (err) => console.error("Signals snapshot error:", err));
+    // Render Channel Selection Grid (CH 1 to 8)
+    function renderChannelButtons() {
+      elements.channelButtonsContainer.innerHTML = '';
+      for (let i = 1; i <= 8; i++) {
+        const btn = document.createElement('button');
+        const isActive = state.currentChannel === i;
+        btn.className = `py-2 rounded font-bold text-xs border transition flex flex-col items-center ${
+          isActive 
+            ? 'bg-emerald-600 border-emerald-400 text-slate-950 shadow-md' 
+            : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+        }`;
+        btn.innerHTML = `<span>CH-${i}</span>`;
+        btn.onclick = () => switchChannel(i);
+        elements.channelButtonsContainer.appendChild(btn);
       }
-
-      // Broadcast Channel fallback sync for multi-tab testing on same device
-      broadcastPresence();
     }
 
-    // BroadcastChannel local cross-tab fallback
-    function initFallbackBroadcastChannel() {
-      broadcastChannel = new BroadcastChannel(`walkie_talkie_ch_${appId}`);
-      broadcastChannel.onmessage = async (event) => {
-        const msg = event.data;
-        if (!currentUser) return;
+    // Switch Channels
+    function switchChannel(chNumber) {
+      if (state.isTransmitting) stopTransmission();
+      state.currentChannel = chNumber;
+      elements.lcdChannelNum.textContent = `CH-${chNumber}`;
+      elements.lcdFreq.textContent = channelFrequencies[chNumber - 1];
 
-        if (msg.type === 'KICK_USER' && msg.targetUid === currentUser.uid) {
-          handleSelfBanned(msg.bannedBy);
-          return;
-        }
-
-        if (isBanned || bannedUsers.has(msg.uid)) return;
-        if (msg.channel !== currentChannel) return;
-
-        if (msg.type === 'PRESENCE_PING') {
-          if (msg.uid !== currentUser.uid) {
-            broadcastPresence();
-          }
-        } else if (msg.type === 'TALK_STATE') {
-          if (msg.uid !== currentUser.uid) {
-            if (msg.talking) {
-              handleChannelTalkingState({ uid: msg.uid, callsign: msg.callsign });
-            } else {
-              if (currentTransmitterUid === msg.uid) {
-                handleChannelTalkingState(null);
-              }
-            }
-          }
-        } else if (msg.type === 'RTC_SIGNAL') {
-          if (msg.targetUid === currentUser.uid) {
-            await handleIncomingSignal(msg.signal);
-          }
-        }
-      };
+      renderChannelButtons();
+      setupFirestoreSync();
     }
 
-    // Ban / Kick User Logic
-    async function banUser(targetUid, targetCallsign) {
-      if (myCallsign.trim() !== 'Bryan Wedekind') {
-        alert("Admin Access Denied: Only Bryan Wedekind has kick/ban authorization.");
+    // Update Active User List Roster with Admin Kick / Ban buttons
+    function updateRosterUI() {
+      const userList = Object.values(state.users);
+      elements.userCount.textContent = `${userList.length} Online`;
+      elements.userRoster.innerHTML = '';
+
+      if (userList.length === 0) {
+        elements.userRoster.innerHTML = `<div class="text-[11px] text-slate-500 text-center py-2">No other operators on this frequency</div>`;
         return;
       }
 
-      if (!confirm(`Are you sure you want to kick and ban operator [${targetCallsign}]?`)) return;
-
-      bannedUsers.add(targetUid);
-
-      // Close WebRTC peer connection immediately
-      if (peerConnections[targetUid]) {
-        peerConnections[targetUid].close();
-        delete peerConnections[targetUid];
-      }
-
-      // Record ban in Firestore
-      if (db) {
-        const banRef = doc(db, 'artifacts', appId, 'public', 'data', 'walkie_banned', targetUid);
-        await setDoc(banRef, {
-          uid: targetUid,
-          callsign: targetCallsign,
-          bannedBy: myCallsign,
-          timestamp: Date.now()
-        }, { merge: true });
-      }
-
-      // Broadcast local kick event for same-device multi-tab testing
-      if (broadcastChannel) {
-        broadcastChannel.postMessage({
-          type: 'KICK_USER',
-          targetUid: targetUid,
-          bannedBy: myCallsign
-        });
-      }
-
-      addLogEntry(`[ADMIN] Kicked & banned operator [${targetCallsign}]`);
-    }
-
-      // Record ban in Firestore
-      if (db) {
-        const banRef = doc(db, 'artifacts', appId, 'public', 'data', 'walkie_banned', targetUid);
-        await setDoc(banRef, {
-          uid: targetUid,
-          callsign: targetCallsign,
-          bannedBy: myCallsign,
-          timestamp: Date.now()
-        }, { merge: true });
-      }
-
-      // Broadcast local kick event for same-device multi-tab testing
-      if (broadcastChannel) {
-        broadcastChannel.postMessage({
-          type: 'KICK_USER',
-          targetUid: targetUid,
-          bannedBy: myCallsign
-        });
-      }
-
-      addLogEntry(`[MOD] Kicked & banned operator [${targetCallsign}]`);
-    }
-
-    // Handle when local user gets banned by another operator
-    function handleSelfBanned(bannedBy) {
-      if (isBanned) return;
-      isBanned = true;
-
-      if (isTransmitting) {
-        stopTransmission();
-      }
-
-      cleanupPeerConnections();
-
-      lcdStatusBanner.className = "relative z-10 bg-rose-950 border border-rose-500 rounded-lg p-2.5 flex items-center justify-between font-mono";
-      lcdStatusDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping";
-      lcdStatusText.textContent = `BANNED // ACCESS REVOKED BY ${bannedBy ? bannedBy.toUpperCase() : 'MODERATOR'}`;
-      lcdStatusText.className = "text-sm font-bold text-rose-400 uppercase";
-      lcdSpeakerName.textContent = "";
-
-      btnPTT.disabled = true;
-      btnPTT.classList.add('opacity-40', 'cursor-not-allowed', 'pointer-events-none');
-      pttMainLabel.textContent = "ACCESS BANNED";
-      pttSubLabel.textContent = "YOU HAVE BEEN KICKED FROM THIS FREQUENCY";
-
-      addLogEntry(`[SYSTEM] YOU HAVE BEEN KICKED & BANNED BY ${bannedBy || 'AN OPERATOR'}`);
-      playTone('busy');
-    }
-            }
-          });
-
-          updateOperatorsList(activeOperators);
-          handleChannelTalkingState(currentChannelTalker);
-        }, (err) => console.error("Presence snapshot error:", err));
-
-        // Listen for incoming WebRTC signals directed to me
-        // Path Rule 1: /artifacts/{appId}/public/data/walkie_signals
-        const signalsCol = collection(db, 'artifacts', appId, 'public', 'data', 'walkie_signals');
-        if (signalsUnsub) signalsUnsub();
-
-        signalsUnsub = onSnapshot(signalsCol, async (snapshot) => {
-          snapshot.docChanges().forEach(async (change) => {
-            if (change.type === 'added') {
-              const signal = change.doc.data();
-              if (signal.targetUid === uid && signal.channel === currentChannel) {
-                await handleIncomingSignal(signal);
-                // Clean up processed signal
-                deleteDoc(change.doc.ref).catch(() => {});
-              }
-            }
-          });
-        }, (err) => console.error("Signals snapshot error:", err));
-      }
-
-      // Broadcast Channel fallback sync for multi-tab testing on same device
-      broadcastPresence();
-    }
-
-    // BroadcastChannel local cross-tab fallback
-    function initFallbackBroadcastChannel() {
-      broadcastChannel = new BroadcastChannel(`walkie_talkie_ch_${appId}`);
-      broadcastChannel.onmessage = async (event) => {
-        const msg = event.data;
-        if (!currentUser) return;
-        if (msg.channel !== currentChannel) return;
-
-        if (msg.type === 'PRESENCE_PING') {
-          if (msg.uid !== currentUser.uid) {
-            broadcastPresence();
-          }
-        } else if (msg.type === 'TALK_STATE') {
-          if (msg.uid !== currentUser.uid) {
-            if (msg.talking) {
-              handleChannelTalkingState({ uid: msg.uid, callsign: msg.callsign });
-            } else {
-              if (currentTransmitterUid === msg.uid) {
-                handleChannelTalkingState(null);
-              }
-            }
-          }
-        } else if (msg.type === 'RTC_SIGNAL') {
-          if (msg.targetUid === currentUser.uid) {
-            await handleIncomingSignal(msg.signal);
-          }
-        }
-      };
-    }
-
-    function broadcastPresence() {
-      if (broadcastChannel && currentUser) {
-        broadcastChannel.postMessage({
-          type: 'PRESENCE_PING',
-          uid: currentUser.uid,
-          callsign: myCallsign,
-          channel: currentChannel
-        });
-      }
-    }
-
-    // WebRTC Signaling Helper
-    async function sendSignal(targetUid, signalData) {
-      if (db) {
-        const signalsCol = collection(db, 'artifacts', appId, 'public', 'data', 'walkie_signals');
-        await addDoc(signalsCol, {
-          targetUid: targetUid,
-          senderUid: currentUser.uid,
-          channel: currentChannel,
-          signal: signalData,
-          timestamp: Date.now()
-        });
-      }
-      if (broadcastChannel) {
-        broadcastChannel.postMessage({
-          type: 'RTC_SIGNAL',
-          targetUid: targetUid,
-          channel: currentChannel,
-          signal: signalData
-        });
-      }
-    }
-
-    // Handle Incoming WebRTC Offers, Answers, & ICE Candidates
-    async function handleIncomingSignal(signalEnvelope) {
-      const { senderUid, signal } = signalEnvelope;
-      if (!senderUid || senderUid === currentUser.uid) return;
-
-      let pc = peerConnections[senderUid];
-
-      if (!pc) {
-        pc = createPeerConnection(senderUid);
-      }
-
-      try {
-        if (signal.sdp) {
-          await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-          if (signal.sdp.type === 'offer') {
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            await sendSignal(senderUid, { sdp: pc.localDescription });
-          }
-        } else if (signal.candidate) {
-          await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
-        }
-      } catch (err) {
-        console.warn("RTC signal handling error:", err);
-      }
-    }
-
-    // Create RTCPeerConnection for a Peer
-    function createPeerConnection(peerUid) {
-      const pc = new RTCPeerConnection(rtcConfig);
-      peerConnections[peerUid] = pc;
-
-      // Add local audio tracks (initially muted)
-      if (micStream) {
-        micStream.getTracks().forEach(track => {
-          pc.addTrack(track, micStream);
-        });
-      }
-
-      // Handle ICE candidates
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          sendSignal(peerUid, { candidate: event.candidate });
-        }
-      };
-
-      // Handle remote audio stream
-      pc.ontrack = (event) => {
-        let remoteAudio = document.getElementById(`audio_${peerUid}`);
-        if (!remoteAudio) {
-          remoteAudio = document.createElement('audio');
-          remoteAudio.id = `audio_${peerUid}`;
-          remoteAudio.autoplay = true;
-          document.getElementById('remoteAudioContainer').appendChild(remoteAudio);
-        }
-        remoteAudio.srcObject = event.streams[0];
-        remoteAudio.volume = rxVolume;
-        remoteStreams[peerUid] = event.streams[0];
-      };
-
-      return pc;
-    }
-
-    // Connect to newly discovered Peer
-    async function connectToPeer(peerUid) {
-      if (bannedUsers.has(peerUid) || isBanned) return;
-      if (peerConnections[peerUid]) return;
-      const pc = createPeerConnection(peerUid);
-      try {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await sendSignal(peerUid, { sdp: pc.localDescription });
-      } catch (err) {
-        console.error("Error creating RTC offer:", err);
-      }
-    }
-
-    async function cleanupPeerConnections() {
-      Object.keys(peerConnections).forEach(uid => {
-        try {
-          peerConnections[uid].close();
-        } catch (e) {}
-        delete peerConnections[uid];
-      });
-      document.getElementById('remoteAudioContainer').innerHTML = '';
-    }
-
-    // Update Operator List UI
-    function updateOperatorsList(operators) {
-      const activePeers = operators.filter(op => op.uid !== currentUser?.uid && !bannedUsers.has(op.uid));
-      operatorCount.textContent = operators.filter(op => !bannedUsers.has(op.uid)).length;
-
-      // Automatically connect WebRTC mesh to other non-banned operators
-      if (!isBanned) {
-        activePeers.forEach(peer => {
-          if (!peerConnections[peer.uid]) {
-            connectToPeer(peer.uid);
-          }
-        });
-      }
-
-      if (operators.length <= 1) {
-        emptyOperatorsState.style.display = 'flex';
-        operatorList.querySelectorAll('.operator-card').forEach(el => el.remove());
-        return;
-      }
-
-      emptyOperatorsState.style.display = 'none';
-
-      // Re-render operator cards
-      operatorList.querySelectorAll('.operator-card').forEach(el => el.remove());
-
-      operators.forEach(op => {
-        if (bannedUsers.has(op.uid)) return;
-
-        const isSelf = op.uid === currentUser?.uid;
-        const isTalking = op.talking || (isSelf && isTransmitting);
-        const isAdmin = myCallsign.trim() === 'Bryan Wedekind';
-
-        const card = document.createElement('div');
-        card.className = `operator-card p-2.5 rounded-xl border transition flex items-center justify-between ${
-          isTalking 
-            ? 'bg-amber-500/10 border-amber-500/80 shadow-md' 
-            : 'bg-slate-950/80 border-slate-800'
+      userList.forEach(u => {
+        const isSelf = u.id === state.userId;
+        const item = document.createElement('div');
+        item.className = `flex items-center justify-between p-2 rounded text-xs border ${
+          u.isTransmitting 
+            ? 'bg-red-950/40 border-red-500/50 text-red-200 animate-pulse' 
+            : 'bg-slate-900/60 border-slate-800 text-slate-300'
         }`;
 
-        card.innerHTML = `
-          <div class="flex items-center space-x-2.5 min-w-0">
-            <div class="w-8 h-8 rounded-lg ${isTalking ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300'} flex items-center justify-center font-mono text-xs shrink-0">
-              ${op.callsign.substring(0, 2).toUpperCase()}
-            </div>
-            <div class="min-w-0">
-              <div class="text-xs font-bold text-white flex items-center space-x-1.5 truncate">
-                <span class="truncate">${op.callsign}</span>
-                ${isSelf ? '<span class="text-[9px] bg-slate-800 text-amber-400 px-1 rounded shrink-0">YOU</span>' : ''}
-              </div>
-              <div class="text-[10px] font-mono text-slate-400">
-                ${isTalking ? '<span class="text-amber-400 font-semibold animate-pulse">TRANSMITTING...</span>' : 'STANDBY'}
-              </div>
-            </div>
+        item.innerHTML = `
+          <div class="flex items-center space-x-2 truncate">
+            <span class="w-2 h-2 rounded-full ${u.isTransmitting ? 'bg-red-500' : 'bg-emerald-500'}"></span>
+            <span class="font-semibold truncate">${u.name} ${isSelf ? '(You)' : ''}</span>
+            ${u.isTransmitting ? '<span class="text-[9px] bg-red-600 px-1 rounded text-white font-bold">TX</span>' : ''}
           </div>
-          <div class="flex items-center space-x-2 shrink-0">
-            ${isTalking ? '<i class="fa-solid fa-signal text-amber-400 text-xs animate-bounce"></i>' : '<span class="w-2 h-2 rounded-full bg-emerald-500"></span>'}
-            ${(!isSelf && isAdmin) ? `
-              <button data-kick-uid="${op.uid}" data-callsign="${op.callsign}" class="btn-kick p-1.5 text-[10px] font-semibold bg-rose-500/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 rounded-lg transition flex items-center space-x-1" title="Kick & Ban Operator">
-                <i class="fa-solid fa-user-slash"></i>
-                <span class="hidden sm:inline">Kick</span>
-              </button>
-            ` : ''}
+          <div class="flex items-center space-x-1 flex-shrink-0">
+            ${
+              state.isAdmin && !isSelf ? `
+                <button data-action="kick" data-id="${u.id}" class="px-1.5 py-0.5 bg-amber-600/30 hover:bg-amber-600 text-amber-200 text-[10px] rounded border border-amber-500/40">
+                  Kick
+                </button>
+                <button data-action="ban" data-id="${u.id}" class="px-1.5 py-0.5 bg-red-600/30 hover:bg-red-600 text-red-200 text-[10px] rounded border border-red-500/40">
+                  Ban
+                </button>
+              ` : ''
+            }
           </div>
         `;
 
-        // Attach kick button listener
-        const kickBtn = card.querySelector('.btn-kick');
-        if (kickBtn) {
-          kickBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            banUser(op.uid, op.callsign);
-          });
+        // Event delegation for Admin Kick / Ban
+        if (state.isAdmin && !isSelf) {
+          const kickBtn = item.querySelector('[data-action="kick"]');
+          const banBtn = item.querySelector('[data-action="ban"]');
+
+          if (kickBtn) {
+            kickBtn.onclick = () => kickUser(u.id);
+          }
+          if (banBtn) {
+            banBtn.onclick = () => banUser(u.id);
+          }
         }
 
-        operatorList.appendChild(card);
+        elements.userRoster.appendChild(item);
       });
     }
 
-    // Handle Global Channel Talking State (Enforce Half-Duplex Walkie-Talkie Rule)
-    function handleChannelTalkingState(talker) {
-      if (talker && talker.uid !== currentUser?.uid) {
-        // Someone else is transmitting
-        isChannelBusy = true;
-        currentTransmitterUid = talker.uid;
-        currentTransmitterName = talker.callsign;
-
-        lcdStatusBanner.className = "relative z-10 bg-amber-950/60 border border-amber-500/50 rounded-lg p-2.5 flex items-center justify-between font-mono animate-pulse";
-        lcdStatusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-500";
-        lcdStatusText.textContent = "RX // INCOMING TRANSMISSION";
-        lcdStatusText.className = "text-sm font-bold text-amber-400 uppercase";
-        lcdSpeakerName.textContent = `[${talker.callsign}]`;
-
-        pttMainLabel.textContent = "CHANNEL BUSY";
-        pttSubLabel.textContent = `OPERATOR ${talker.callsign.toUpperCase()} IS TALKING`;
-        btnPTT.classList.add('opacity-60', 'cursor-not-allowed');
-
-        playTone('ptt_start');
-        addLogEntry(`Receiving transmission from [${talker.callsign}]`);
-      } else if (!isTransmitting) {
-        // Channel clear
-        isChannelBusy = false;
-        currentTransmitterUid = null;
-        currentTransmitterName = "";
-
-        lcdStatusBanner.className = "relative z-10 bg-emerald-950/60 border border-emerald-500/30 rounded-lg p-2.5 flex items-center justify-between font-mono";
-        lcdStatusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
-        lcdStatusText.textContent = "STANDBY // CHANNEL CLEAR";
-        lcdStatusText.className = "text-sm font-bold text-emerald-300 uppercase";
-        lcdSpeakerName.textContent = "";
-
-        pttMainLabel.textContent = "PUSH TO TALK";
-        pttSubLabel.textContent = "HOLD DOWN MOUSE OR [SPACEBAR]";
-        btnPTT.classList.remove('opacity-60', 'cursor-not-allowed');
-
-        if (squelchAuto) playTone('squelch');
+    // Admin Actions
+    function kickUser(targetId) {
+      if (!state.isAdmin) return;
+      delete state.users[targetId];
+      if (state.db) {
+        deleteDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', `channel_${state.currentChannel}`, targetId)).catch(() => {});
       }
+      updateRosterUI();
     }
 
-    // START PTT TRANSMISSION
-    async function startTransmission() {
-      if (isBanned) {
-        playTone('busy');
-        return;
-      }
-      if (isTransmitting) return;
-      if (isChannelBusy) {
-        playTone('busy');
-        return;
-      }
-
-      if (!micStream) {
-        try {
-          await initAudioEngine();
-        } catch (e) {
-          alert("Microphone required for PTT.");
-          return;
-        }
-      }
-
-      isTransmitting = true;
-
-      // Unmute microphone tracks for WebRTC stream
-      micStream.getAudioTracks().forEach(track => {
-        track.enabled = true;
-      });
-
-      // UI Transmit updates
-      btnPTT.classList.remove('shadow-ptt-idle');
-      btnPTT.classList.add('shadow-ptt-active', 'border-rose-500', 'scale-[0.98]');
-      pttPulseRing.classList.remove('opacity-0');
-      pttPulseRing.classList.add('opacity-100', 'animate-pulse-ring');
-
-      pttIconContainer.className = "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-rose-500 text-white flex items-center justify-center text-2xl sm:text-3xl mx-auto shadow-lg shadow-rose-500/50";
-      pttMainLabel.textContent = "TRANSMITTING";
-      pttMainLabel.className = "block text-lg sm:text-xl font-extrabold tracking-wider text-rose-500 font-mono";
-      pttSubLabel.textContent = "ON AIR - RELEASE TO LISTEN";
-
-      lcdStatusBanner.className = "relative z-10 bg-rose-950/80 border border-rose-500/60 rounded-lg p-2.5 flex items-center justify-between font-mono animate-pulse";
-      lcdStatusDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
-      lcdStatusText.textContent = "TX // TRANSMITTING LIVE";
-      lcdStatusText.className = "text-sm font-bold text-rose-400 uppercase";
-      lcdSpeakerName.textContent = `[${myCallsign}]`;
-
-      playTone('ptt_start');
-      addLogEntry(`Keyed up microphone on CH 0${currentChannel}`);
-
-      // Broadcast talking state to Firebase & BroadcastChannel
-      updateTalkingStateInCloud(true);
+    function banUser(targetId) {
+      if (!state.isAdmin) return;
+      state.bannedUsers.add(targetId);
+      kickUser(targetId);
     }
 
-    // STOP PTT TRANSMISSION
-    function stopTransmission() {
-      if (!isTransmitting) return;
-      isTransmitting = false;
-
-      // Mute local microphone audio tracks
-      if (micStream) {
-        micStream.getAudioTracks().forEach(track => {
-          track.enabled = false;
-        });
-      }
-
-      // Restore UI
-      btnPTT.classList.remove('shadow-ptt-active', 'border-rose-500', 'scale-[0.98]');
-      btnPTT.classList.add('shadow-ptt-idle');
-      pttPulseRing.classList.remove('opacity-100', 'animate-pulse-ring');
-      pttPulseRing.classList.add('opacity-0');
-
-      pttIconContainer.className = "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-2xl sm:text-3xl mx-auto";
-      pttMainLabel.textContent = "PUSH TO TALK";
-      pttMainLabel.className = "block text-lg sm:text-xl font-extrabold tracking-wider text-amber-400 font-mono";
-      pttSubLabel.textContent = "HOLD DOWN MOUSE OR [SPACEBAR]";
-
-      lcdStatusBanner.className = "relative z-10 bg-emerald-950/60 border border-emerald-500/30 rounded-lg p-2.5 flex items-center justify-between font-mono";
-      lcdStatusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
-      lcdStatusText.textContent = "STANDBY // CHANNEL CLEAR";
-      lcdStatusText.className = "text-sm font-bold text-emerald-300 uppercase";
-      lcdSpeakerName.textContent = "";
-
-      playTone('roger_beep');
-      setTimeout(() => {
-        if (squelchAuto) playTone('squelch');
-      }, 130);
-
-      addLogEntry(`Released transmission key.`);
-
-      // Broadcast stop state to cloud
-      updateTalkingStateInCloud(false);
-    }
-
-    // Sync Talking Status to Firestore & BroadcastChannel
-    async function updateTalkingStateInCloud(talking) {
-      if (!currentUser) return;
-
-      if (db) {
-        const presenceRef = doc(db, 'artifacts', appId, 'public', 'data', 'walkie_presence', currentUser.uid);
-        await setDoc(presenceRef, { talking: talking, lastSeen: Date.now() }, { merge: true });
-      }
-
-      if (broadcastChannel) {
-        broadcastChannel.postMessage({
-          type: 'TALK_STATE',
-          uid: currentUser.uid,
-          callsign: myCallsign,
-          channel: currentChannel,
-          talking: talking
-        });
-      }
-    }
-
-    // Attach User & Hardware Controls Listeners
+    // Event Listeners Initialization
     function setupEventListeners() {
-      // PTT Mouse Events
-      btnPTT.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        startTransmission();
-      });
+      // PTT Button Touch/Mouse events
+      elements.pttBtn.addEventListener('mousedown', startTransmission);
+      elements.pttBtn.addEventListener('mouseup', stopTransmission);
+      elements.pttBtn.addEventListener('mouseleave', stopTransmission);
 
-      window.addEventListener('mouseup', () => {
-        if (isTransmitting) stopTransmission();
-      });
+      elements.pttBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startTransmission(); });
+      elements.pttBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopTransmission(); });
+      elements.pttBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); stopTransmission(); });
 
-      // PTT Touch Events (Mobile Support)
-      btnPTT.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        startTransmission();
-      });
-
-      btnPTT.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        stopTransmission();
-      });
-
-      btnPTT.addEventListener('touchcancel', (e) => {
-        e.preventDefault();
-        stopTransmission();
-      });
-
-      // Keyboard Shortcut: Hold SPACEBAR for PTT
+      // Keyboard Spacebar PTT
       window.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && !e.repeat && document.activeElement.tagName !== 'INPUT') {
           e.preventDefault();
           startTransmission();
         }
       });
-
       window.addEventListener('keyup', (e) => {
         if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
           e.preventDefault();
@@ -1482,76 +561,29 @@
         }
       });
 
-      // Receiver Volume Control
-      rxVolumeSlider.addEventListener('input', (e) => {
-        const val = e.target.value;
-        rxVolume = val / 100;
-        volumeValueText.textContent = `${val}%`;
-        
-        // Update volume on remote audio elements
-        document.querySelectorAll('#remoteAudioContainer audio').forEach(audio => {
-          audio.volume = rxVolume;
-        });
+      // Mic Enable Manual Button
+      elements.requestMicBtn.addEventListener('click', requestMicrophone);
+
+      // Name Modal Controls
+      elements.editNameBtn.addEventListener('click', () => {
+        elements.usernameInput.value = state.userName;
+        elements.nameModal.classList.remove('hidden');
       });
 
-      // Mic Sensitivity Control
-      micGainSlider.addEventListener('input', (e) => {
-        const val = e.target.value;
-        micGainLevel = val / 100;
-        micGainValueText.textContent = `${val}%`;
-        if (micGainNode) {
-          micGainNode.gain.value = micGainLevel;
-        }
-      });
-
-      // Roger Beep Toggle
-      btnToggleRogerBeep.addEventListener('click', () => {
-        rogerBeepEnabled = !rogerBeepEnabled;
-        rogerBeepState.textContent = rogerBeepEnabled ? 'ON' : 'OFF';
-        rogerBeepState.className = rogerBeepEnabled ? 'font-mono text-amber-400' : 'font-mono text-slate-500';
-        rogerBeepIcon.className = rogerBeepEnabled ? 'fa-solid fa-volume-high text-amber-500' : 'fa-solid fa-volume-xmark text-slate-500';
-        playTone('channel_switch');
-      });
-
-      // Squelch Toggle
-      btnToggleSquelch.addEventListener('click', () => {
-        squelchAuto = !squelchAuto;
-        squelchState.textContent = squelchAuto ? 'AUTO' : 'OFF';
-        squelchState.className = squelchAuto ? 'font-mono text-amber-400' : 'font-mono text-slate-500';
-        playTone('squelch');
-      });
-
-      // Disconnect / Logout
-      btnDisconnect.addEventListener('click', () => {
-        if (confirm("Disconnect radio and return to setup screen?")) {
-          if (isTransmitting) stopTransmission();
-          if (presenceUnsub) presenceUnsub();
-          if (signalsUnsub) signalsUnsub();
-          cleanupPeerConnections();
-
-          authOverlay.classList.remove('hidden');
-          setTimeout(() => authOverlay.classList.remove('opacity-0', 'pointer-events-none'), 10);
-          btnConnect.disabled = false;
-          btnConnect.innerHTML = `<i class="fa-solid fa-power-off text-sm"></i><span>INITIALIZE RADIO LINK</span>`;
-        }
-      });
-
-      // Clear Transmission Log
-      btnClearLog.addEventListener('click', () => {
-        commLog.innerHTML = `<div class="text-slate-600 italic">[SYSTEM] Log cleared.</div>`;
+      elements.saveNameBtn.addEventListener('click', () => {
+        setIdentity(elements.usernameInput.value);
+        elements.nameModal.classList.add('hidden');
       });
     }
 
-    // Append Real-time Log Entry
-    function addLogEntry(text) {
-      const now = new Date();
-      const timeStr = now.toTimeString().split(' ')[0];
-      const div = document.createElement('div');
-      div.className = "flex items-start space-x-1.5 py-0.5 border-b border-slate-800/40";
-      div.innerHTML = `<span class="text-amber-500/80 font-bold">[${timeStr}]</span><span>${text}</span>`;
-      commLog.appendChild(div);
-      commLog.scrollTop = commLog.scrollHeight;
-    }
+    // Boot App on Page Load
+    window.onload = async function() {
+      renderChannelButtons();
+      setupEventListeners();
+      setIdentity('Bryan Wedekind'); // Default identity for instant admin test
+      await requestMicrophone();
+      await initFirebase();
+    };
   </script>
 </body>
 </html>
