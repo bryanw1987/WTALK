@@ -769,11 +769,11 @@
     audioElement.srcObject = stream;
     
    // Ensure track is unmuted and forced to play
-        event.track.onunmute = () => {
-          audioElement.play().catch(err => {
-            logDiag(`Autoplay blocked remote audio: ${err.message}`, 'warn');
-          });
-        };
+      event.track.onunmute = () => {
+        audioElement.play().catch(err => {
+          logDiag(`Autoplay blocked remote audio: ${err.message}`, 'warn');
+        });
+      };
 
         audioElement.play().catch(error => {
           logDiag(`Browser blocked audio autoplay: ${error.message}`, 'warn');
