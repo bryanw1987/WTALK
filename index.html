@@ -4,46 +4,31 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Tactical WebRTC Walkie-Talkie</title>
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&display=swap');
 
-    body {
-      font-family: 'Chakra Petch', sans-serif;
-    }
-    .mono-font {
-      font-family: 'Share Tech Mono', monospace;
-    }
+    body { font-family: 'Chakra Petch', sans-serif; }
+    .mono-font { font-family: 'Share Tech Mono', monospace; }
     
-    /* PTT Pulse Animation */
     @keyframes ptt-pulse {
       0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
       70% { box-shadow: 0 0 0 24px rgba(239, 68, 68, 0); }
       100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
-    .ptt-active {
-      animation: ptt-pulse 1.2s infinite;
-    }
+    .ptt-active { animation: ptt-pulse 1.2s infinite; }
 
-    /* Scanline overlay for LCD screen */
     .scanlines {
-      background: linear-gradient(
-        rgba(18, 16, 16, 0) 50%, 
-        rgba(0, 0, 0, 0.3) 50%
-      );
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%);
       background-size: 100% 4px;
     }
   </style>
 </head>
 <body class="h-full flex flex-col items-center justify-center p-2 sm:p-4 bg-slate-950 overflow-hidden">
 
-  <!-- Main Walkie-Talkie Enclosure -->
   <div class="w-full max-w-md bg-slate-900 border-2 border-slate-700 rounded-3xl shadow-2xl flex flex-col overflow-hidden relative" style="height: 95vh; max-height: 890px;">
     
-    <!-- Hardware Header & System Diagnostic Badges -->
     <div class="bg-slate-850 border-b border-slate-800 p-2.5 px-3 flex flex-col space-y-1.5 text-xs">
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-2">
@@ -56,7 +41,6 @@
         </button>
       </div>
 
-      <!-- Real-Time Status Indicators -->
       <div class="grid grid-cols-2 gap-2 pt-0.5">
         <div id="firebaseStatusBadge" class="flex items-center justify-between px-2 py-1 rounded bg-slate-950 border border-slate-800 text-[10px]">
           <span class="text-slate-400 font-bold">Firebase:</span>
@@ -76,7 +60,6 @@
       </div>
     </div>
 
-    <!-- Main Display Screen (Tactical LCD) -->
     <div class="m-3 p-3 bg-slate-950 border border-emerald-500/30 rounded-xl shadow-inner flex flex-col justify-between relative overflow-hidden scanlines">
       <div class="absolute -top-10 -left-10 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
 
@@ -94,7 +77,6 @@
         </div>
       </div>
 
-      <!-- User Identity Display -->
       <div class="bg-slate-900/90 border border-slate-800 rounded p-2 mb-2 flex justify-between items-center text-xs relative z-10">
         <div class="flex items-center space-x-2 overflow-hidden">
           <i data-lucide="user" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>
@@ -104,7 +86,6 @@
         <button id="switchAuthModalBtn" class="text-[10px] text-emerald-400 hover:underline flex-shrink-0 ml-2 font-bold">Switch Account</button>
       </div>
 
-      <!-- Audio Meter / Waveform Canvas -->
       <div class="h-10 bg-slate-900 rounded border border-emerald-950 p-1 flex items-center justify-center relative z-10">
         <canvas id="audioVisualizer" class="w-full h-full"></canvas>
         <div id="visualizerOverlayText" class="absolute inset-0 flex items-center justify-center text-[11px] text-slate-500 font-bold uppercase tracking-wider pointer-events-none">
@@ -113,7 +94,6 @@
       </div>
     </div>
 
-    <!-- Diagnostic Log Overlay -->
     <div id="diagPanel" class="hidden mx-3 mb-2 p-2 bg-slate-950 border border-slate-800 rounded-lg text-[10px] font-mono text-slate-300 space-y-1 max-h-32 overflow-y-auto">
       <div class="flex justify-between items-center border-b border-slate-800 pb-1 text-slate-400 font-bold">
         <span>SIGNALING LOG</span>
@@ -124,7 +104,6 @@
       </div>
     </div>
 
-    <!-- Microphone Setup Notice -->
     <div id="micBanner" class="mx-3 mb-2 p-2 bg-amber-950/40 border border-amber-600/40 rounded-lg text-amber-200 text-xs flex items-center justify-between">
       <div class="flex items-center space-x-2">
         <i data-lucide="alert-circle" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
@@ -135,18 +114,15 @@
       </button>
     </div>
 
-    <!-- Banned Alert Notice -->
     <div id="bannedBanner" class="hidden mx-3 mb-2 p-3 bg-red-950/90 border border-red-600 rounded-lg text-red-200 text-xs text-center font-bold">
       🚫 ACCESS DENIED: YOU HAVE BEEN KICKED / BANNED BY ADMINISTRATOR
     </div>
 
-    <!-- Channel Selector Buttons (CH 1 - CH 8) -->
     <div class="px-3 mb-2">
       <div class="text-[10px] font-bold text-slate-500 uppercase mb-1 tracking-wider">Select Frequency Channel</div>
       <div class="grid grid-cols-4 gap-1.5" id="channelButtonsContainer"></div>
     </div>
 
-    <!-- Active Channel Roster -->
     <div class="flex-1 px-3 overflow-hidden flex flex-col mb-2">
       <div class="flex justify-between items-center mb-1">
         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Channel Roster</span>
@@ -155,7 +131,6 @@
       <div id="userRoster" class="flex-1 overflow-y-auto space-y-1 pr-1 bg-slate-950/60 rounded-lg p-2 border border-slate-800"></div>
     </div>
 
-    <!-- Push-To-Talk (PTT) Controls -->
     <div class="bg-slate-950 p-4 border-t border-slate-800 flex flex-col items-center justify-center relative">
       <div class="text-[10px] text-slate-500 font-mono mb-2 uppercase tracking-widest text-center">
         Hold to Transmit ( Spacebar or Button )
@@ -166,11 +141,10 @@
       </button>
     </div>
 
-    <!-- Container for incoming audio elements (CRUCIAL FOR SOUND) -->
-    <div id="remoteAudioContainer" class="hidden"></div>
+    <!-- AUDIO CONTAINER FIX: Rendered but invisible to prevent Safari Display:None bugs -->
+    <div id="remoteAudioContainer" style="position: absolute; top: -9999px; left: -9999px; width: 1px; height: 1px; overflow: hidden;"></div>
   </div>
 
-  <!-- AUTHENTICATION MODAL -->
   <div id="authModal" class="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50">
     <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl p-5 shadow-2xl space-y-4">
       <div class="flex justify-between items-center border-b border-slate-800 pb-3">
@@ -223,7 +197,6 @@
     </div>
   </div>
 
-  <!-- Application Engine Script -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -252,6 +225,8 @@
       isTransmitting: false,
       isMicVerified: false,
       isBanned: false,
+      isPresenceEstablished: false, // Tracks successful join for kick detection
+      presenceInterval: null,       // Heartbeat interval
       
       audioStream: null,
       audioContext: null,
@@ -397,7 +372,6 @@
       } catch (e) {}
     }
 
-    // Wake up AudioContext globally on interaction (Fixes Auto-play blocks)
     const wakeAudioEngine = () => {
       if (state.audioContext && state.audioContext.state === 'suspended') {
         state.audioContext.resume();
@@ -561,7 +535,9 @@
       });
     }
 
-    // FIREBASE PRESENCE & CLEANUP
+    // -------------------------------------------------------------
+    // GHOST & KICK FIX: Heartbeat System & Hard Reload
+    // -------------------------------------------------------------
     function setupChannelPresenceAndSignaling() {
       if (!state.db || !state.userId || state.isBanned) return;
       if (state.unsubscribePresence) state.unsubscribePresence();
@@ -573,16 +549,26 @@
       state.unsubscribePresence = onSnapshot(presenceRef, (snapshot) => {
         const newUsers = {};
         let selfExistsInRoster = false;
+        const now = Date.now();
 
         snapshot.forEach(doc => {
-          newUsers[doc.id] = doc.data();
-          if (doc.id === state.userId) selfExistsInRoster = true;
+          const data = doc.data();
+          // Filter out ghosts whose heartbeat is older than 15 seconds
+          if (now - data.updatedAt < 15000) {
+            newUsers[doc.id] = data;
+            if (doc.id === state.userId) selfExistsInRoster = true;
+          } else if (state.isAdmin && doc.id !== state.userId) {
+            // Admin automatically cleans the ghost records from the database
+            deleteDoc(doc.ref).catch(()=>{});
+          }
         });
 
-        // KICK ENFORCEMENT: If you were in the channel but admin deleted your document
-        if (!selfExistsInRoster && Object.keys(state.channelUsers).length > 0 && state.firebaseStatus === 'CONNECTED') {
-          logDiag("You were KICKED from this channel.", 'error');
-          stopTransmission();
+        // KICK ENFORCEMENT: If presence was established but deleted out from under you
+        if (!selfExistsInRoster && state.isPresenceEstablished) {
+          logDiag("KICKED BY ADMIN", 'error');
+          alert("You have been kicked from the channel.");
+          window.location.reload(); // Hard boot to reset connection entirely
+          return;
         }
 
         state.channelUsers = newUsers;
@@ -591,6 +577,12 @@
       });
 
       publishPresence();
+
+      // Start 5-second presence heartbeat
+      if (state.presenceInterval) clearInterval(state.presenceInterval);
+      state.presenceInterval = setInterval(() => {
+        publishPresence();
+      }, 5000);
 
       const signalsRef = collection(state.db, 'artifacts', state.appId, 'public', 'data', `signals_ch${ch}`);
       state.unsubscribeSignals = onSnapshot(signalsRef, (snapshot) => {
@@ -611,17 +603,11 @@
         name: state.userName,
         isAdmin: state.isAdmin,
         isTransmitting: state.isTransmitting,
-        updatedAt: Date.now()
-      }, { merge: true }).catch(()=>{});
+        updatedAt: Date.now() // Timestamps power the ghost detection
+      }, { merge: true }).then(() => {
+        state.isPresenceEstablished = true;
+      }).catch(()=>{});
     }
-
-    // DELETE GHOST PRESENCE WHEN CLOSING APP
-    window.addEventListener('beforeunload', () => {
-      if (state.db && state.userId) {
-        const myDoc = doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${state.currentChannel}`, state.userId);
-        deleteDoc(myDoc).catch(()=>{});
-      }
-    });
 
     const iceServers = {
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]
@@ -678,12 +664,12 @@
             audioElement.id = 'audio-' + stream.id;
             audioElement.autoplay = true;
             audioElement.playsInline = true;
+            audioElement.volume = 1.0; // Force full volume mapping
             elements.remoteAudioContainer.appendChild(audioElement);
         }
         
         audioElement.srcObject = stream;
         
-        // Force play when the remote user unmutes their stream
         event.track.onunmute = () => {
           audioElement.play().catch(e => logDiag(`Autoplay block: ${e.message}`, 'warn'));
         };
@@ -780,11 +766,11 @@
     function switchChannel(chNumber) {
       if (state.isTransmitting) stopTransmission();
 
-      // FIX GHOST USERS ON CHANNEL SWITCH
       if (state.db && state.userId) {
         deleteDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${state.currentChannel}`, state.userId)).catch(()=>{});
       }
 
+      state.isPresenceEstablished = false;
       Object.keys(state.peerConnections).forEach(peerId => closePeerConnection(peerId));
 
       state.currentChannel = chNumber;
