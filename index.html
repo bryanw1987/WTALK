@@ -610,7 +610,7 @@
       });
     }
 
- // PRESENCE AND WEBRTC SIGNALING (FIRESTORE)
+    // PRESENCE AND WEBRTC SIGNALING (FIRESTORE)
     function setupChannelPresenceAndSignaling() {
       if (!state.db || !state.userId || state.isBanned) return;
 
@@ -630,6 +630,11 @@
           if (doc.id === state.userId) selfExistsInRoster = true;
         });
 
+        // If user was kicked from Firestore presence doc
+        if (!selfExistsInRoster && Object.keys(state.channelUsers).length > 0) {
+          logDiag("Notice: You were removed from the channel roster.", 'warn');
+        }
+
         state.channelUsers = newUsers;
         updateRosterUI();
         manageWebRTCPeerConnections();
@@ -637,7 +642,7 @@
         logDiag(`Presence Error: ${err.message}`, 'error');
       });
 
-      // Publish local user presence using UID as document ID
+      // Publish local user presence
       publishPresence();
 
       // Signals Listener
@@ -654,21 +659,6 @@
       }, (err) => {
         logDiag(`Signals Error: ${err.message}`, 'error');
       });
-    }
-
-    function publishPresence() {
-      if (!state.db || !state.userId || state.isBanned) return;
-      const ch = state.currentChannel;
-      // CRITICAL FIX: Document ID is explicitly state.userId to match Firestore rules
-      const myDoc = doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${ch}`, state.userId);
-      
-      setDoc(myDoc, {
-        id: state.userId,
-        name: state.userName,
-        isAdmin: state.isAdmin,
-        isTransmitting: state.isTransmitting,
-        updatedAt: Date.now()
-      }, { merge: true }).catch(err => logDiag(`Publish presence error: ${err.message}`, 'warn'));
     }
 
     function publishPresence() {
