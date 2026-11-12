@@ -56,9 +56,8 @@
         </button>
       </div>
 
-      <!-- Real-Time Status Indicators (Firebase & WebRTC) -->
+      <!-- Real-Time Status Indicators -->
       <div class="grid grid-cols-2 gap-2 pt-0.5">
-        <!-- Firebase Status Badge -->
         <div id="firebaseStatusBadge" class="flex items-center justify-between px-2 py-1 rounded bg-slate-950 border border-slate-800 text-[10px]">
           <span class="text-slate-400 font-bold">Firebase:</span>
           <div class="flex items-center space-x-1">
@@ -67,7 +66,6 @@
           </div>
         </div>
 
-        <!-- WebRTC Status Badge -->
         <div id="webrtcStatusBadge" class="flex items-center justify-between px-2 py-1 rounded bg-slate-950 border border-slate-800 text-[10px]">
           <span class="text-slate-400 font-bold">WebRTC:</span>
           <div class="flex items-center space-x-1">
@@ -80,10 +78,8 @@
 
     <!-- Main Display Screen (Tactical LCD) -->
     <div class="m-3 p-3 bg-slate-950 border border-emerald-500/30 rounded-xl shadow-inner flex flex-col justify-between relative overflow-hidden scanlines">
-      <!-- Ambient Glow -->
       <div class="absolute -top-10 -left-10 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
 
-      <!-- Screen Header: Channel & Frequency -->
       <div class="flex justify-between items-start mb-2 relative z-10">
         <div>
           <div class="text-[9px] text-emerald-600 uppercase tracking-widest font-bold">CHANNEL FREQUENCY</div>
@@ -117,7 +113,7 @@
       </div>
     </div>
 
-    <!-- Diagnostic Log Overlay (Hidden by Default) -->
+    <!-- Diagnostic Log Overlay -->
     <div id="diagPanel" class="hidden mx-3 mb-2 p-2 bg-slate-950 border border-slate-800 rounded-lg text-[10px] font-mono text-slate-300 space-y-1 max-h-32 overflow-y-auto">
       <div class="flex justify-between items-center border-b border-slate-800 pb-1 text-slate-400 font-bold">
         <span>SIGNALING LOG</span>
@@ -132,7 +128,7 @@
     <div id="micBanner" class="mx-3 mb-2 p-2 bg-amber-950/40 border border-amber-600/40 rounded-lg text-amber-200 text-xs flex items-center justify-between">
       <div class="flex items-center space-x-2">
         <i data-lucide="alert-circle" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
-        <span>Microphone access required for PTT audio transmission.</span>
+        <span>Microphone access required for PTT audio.</span>
       </div>
       <button id="requestMicBtn" class="px-2 py-1 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-[11px] rounded transition">
         Enable Mic
@@ -147,20 +143,16 @@
     <!-- Channel Selector Buttons (CH 1 - CH 8) -->
     <div class="px-3 mb-2">
       <div class="text-[10px] font-bold text-slate-500 uppercase mb-1 tracking-wider">Select Frequency Channel</div>
-      <div class="grid grid-cols-4 gap-1.5" id="channelButtonsContainer">
-        <!-- Generated CH 1 to CH 8 buttons -->
-      </div>
+      <div class="grid grid-cols-4 gap-1.5" id="channelButtonsContainer"></div>
     </div>
 
-    <!-- Active Channel Roster / User Presence List -->
+    <!-- Active Channel Roster -->
     <div class="flex-1 px-3 overflow-hidden flex flex-col mb-2">
       <div class="flex justify-between items-center mb-1">
         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Channel Roster</span>
         <span id="userCount" class="text-[10px] font-mono text-emerald-500">1 Online</span>
       </div>
-      <div id="userRoster" class="flex-1 overflow-y-auto space-y-1 pr-1 bg-slate-950/60 rounded-lg p-2 border border-slate-800">
-        <!-- Roster items populated dynamically -->
-      </div>
+      <div id="userRoster" class="flex-1 overflow-y-auto space-y-1 pr-1 bg-slate-950/60 rounded-lg p-2 border border-slate-800"></div>
     </div>
 
     <!-- Push-To-Talk (PTT) Controls -->
@@ -168,23 +160,19 @@
       <div class="text-[10px] text-slate-500 font-mono mb-2 uppercase tracking-widest text-center">
         Hold to Transmit ( Spacebar or Button )
       </div>
-
-      <!-- Tactile PTT Button -->
       <button id="pttBtn" class="w-28 h-28 rounded-full bg-gradient-to-b from-red-500 via-red-600 to-red-800 text-white font-black text-lg tracking-wider border-4 border-red-900/60 shadow-lg active:scale-95 transition-transform flex flex-col items-center justify-center space-y-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
         <i data-lucide="radio" class="w-8 h-8"></i>
         <span>PTT</span>
       </button>
     </div>
 
-    <!-- Container for incoming audio elements -->
+    <!-- Container for incoming audio elements (CRUCIAL FOR SOUND) -->
     <div id="remoteAudioContainer" class="hidden"></div>
   </div>
 
-  <!-- AUTHENTICATION MODAL (Callsign Anonymous or Email Admin Login) -->
+  <!-- AUTHENTICATION MODAL -->
   <div id="authModal" class="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50">
     <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl p-5 shadow-2xl space-y-4">
-      
-      <!-- Modal Header -->
       <div class="flex justify-between items-center border-b border-slate-800 pb-3">
         <h3 id="authModalTitle" class="text-lg font-bold text-slate-100 flex items-center space-x-2">
           <i data-lucide="radio" class="w-5 h-5 text-emerald-400"></i>
@@ -195,51 +183,43 @@
         </span>
       </div>
 
-      <!-- Auth Error Notification Box -->
       <div id="authErrorBox" class="hidden p-2.5 bg-red-950/80 border border-red-700/80 rounded-lg text-red-200 text-xs font-semibold flex items-center space-x-2">
         <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400 flex-shrink-0"></i>
         <span id="authErrorMsg">Authentication failed.</span>
       </div>
 
-      <!-- VIEW 1: Anonymous Callsign View -->
       <form id="anonymousAuthForm" class="space-y-3">
         <div>
           <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1">Operator Callsign</label>
           <input type="text" id="callsignInput" placeholder="e.g. Strike-1" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500" />
         </div>
-
         <button type="submit" id="joinAnonBtn" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded-lg transition text-sm flex items-center justify-center space-x-2">
           <i data-lucide="arrow-right" class="w-4 h-4"></i>
           <span>Join Channel</span>
         </button>
       </form>
 
-      <!-- VIEW 2: Admin Login View (Hidden by default) -->
       <form id="adminAuthForm" class="hidden space-y-3">
         <div>
           <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1">Admin Email</label>
           <input type="email" id="adminEmailInput" placeholder="admin@domain.com" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500" />
         </div>
-
         <div>
           <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1">Admin Password</label>
           <input type="password" id="adminPasswordInput" placeholder="••••••••" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500" />
         </div>
-
         <button type="submit" id="loginAdminBtn" class="w-full py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg transition text-sm flex items-center justify-center space-x-2">
           <i data-lucide="shield-check" class="w-4 h-4"></i>
           <span>Login as Administrator</span>
         </button>
       </form>
 
-      <!-- Mode Toggle Switch Button -->
       <div class="pt-2 border-t border-slate-800 flex justify-center">
         <button id="toggleAuthModeBtn" type="button" class="text-xs text-slate-400 hover:text-emerald-400 transition flex items-center space-x-1 underline">
           <i data-lucide="shield" class="w-3.5 h-3.5"></i>
           <span id="toggleAuthModeText">Switch to Admin Login</span>
         </button>
       </div>
-
     </div>
   </div>
 
@@ -249,10 +229,8 @@
     import { getAuth, signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // Initialize Lucide icons
     lucide.createIcons();
 
-    // 1. HARDCODED FIREBASE CONFIGURATION (Exact specifications)
     const firebaseConfig = {
       apiKey: "AIzaSyD_N9nYpXbh-TYrLEqhcoEmgWnNBDyvNxs",
       authDomain: "wtalk-222b2.firebaseapp.com",
@@ -264,7 +242,6 @@
       measurementId: "G-89RQXQW4ZR"
     };
 
-    // Global State Container
     const state = {
       appId: typeof __app_id !== 'undefined' ? __app_id : 'wtalk-222b2',
       currentChannel: 1,
@@ -276,28 +253,22 @@
       isMicVerified: false,
       isBanned: false,
       
-      // Audio nodes
       audioStream: null,
       audioContext: null,
       analyserNode: null,
       
-      // Firebase references
       db: null,
       auth: null,
       unsubscribePresence: null,
       unsubscribeSignals: null,
       unsubscribeBans: null,
 
-      // WebRTC mesh map: peerId -> RTCPeerConnection
       peerConnections: {},
-      // Active users roster on current channel
       channelUsers: {},
-
-      firebaseStatus: 'DISCONNECTED', // DISCONNECTED | CONNECTING | CONNECTED | ERROR
-      webrtcStatus: 'IDLE' // IDLE | CONNECTING | CONNECTED
+      firebaseStatus: 'DISCONNECTED',
+      webrtcStatus: 'IDLE'
     };
 
-    // DOM Elements Mapping
     const elements = {
       firebaseStatusDot: document.getElementById('firebaseStatusDot'),
       firebaseStatusText: document.getElementById('firebaseStatusText'),
@@ -323,8 +294,6 @@
       userCount: document.getElementById('userCount'),
       pttBtn: document.getElementById('pttBtn'),
       remoteAudioContainer: document.getElementById('remoteAudioContainer'),
-
-      // Modal Elements
       authModal: document.getElementById('authModal'),
       authModalTitle: document.getElementById('authModalTitle'),
       authModeBadge: document.getElementById('authModeBadge'),
@@ -339,13 +308,11 @@
       toggleAuthModeText: document.getElementById('toggleAuthModeText')
     };
 
-    // Frequency Presets for CH 1-8
     const channelFrequencies = [
       '462.5625 MHz', '462.5875 MHz', '462.6125 MHz', '462.6375 MHz',
       '462.6625 MHz', '462.6875 MHz', '462.7125 MHz', '467.5625 MHz'
     ];
 
-    // Diagnostic Logging Utility
     function logDiag(message, type = 'info') {
       const time = new Date().toLocaleTimeString().split(' ')[0];
       const entry = document.createElement('div');
@@ -355,7 +322,6 @@
       elements.diagLogContent.scrollTop = elements.diagLogContent.scrollHeight;
     }
 
-    // UI Status Indicator Update
     function updateStatusUI() {
       if (state.firebaseStatus === 'CONNECTED') {
         elements.firebaseStatusDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
@@ -383,13 +349,10 @@
       }
     }
 
-    // Web Audio API Sound Synthesizer (Chirps & Squelch Tail)
     function playAudioFx(type = 'start') {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        
         if (type === 'start') {
-          // Key-down chirp sweep
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.connect(gain);
@@ -401,7 +364,6 @@
           osc.start();
           osc.stop(ctx.currentTime + 0.06);
         } else {
-          // Key-up Roger beep
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.connect(gain);
@@ -413,7 +375,6 @@
           osc.start();
           osc.stop(ctx.currentTime + 0.08);
 
-          // Tactical Squelch Burst Noise
           setTimeout(() => {
             try {
               const bufferSize = ctx.sampleRate * 0.07;
@@ -436,7 +397,15 @@
       } catch (e) {}
     }
 
-    // Microphone & Oscilloscope Visualizer setup
+    // Wake up AudioContext globally on interaction (Fixes Auto-play blocks)
+    const wakeAudioEngine = () => {
+      if (state.audioContext && state.audioContext.state === 'suspended') {
+        state.audioContext.resume();
+      }
+    };
+    document.addEventListener('click', wakeAudioEngine);
+    document.addEventListener('touchstart', wakeAudioEngine);
+
     async function requestMicrophone() {
       try {
         state.audioStream = await navigator.mediaDevices.getUserMedia({ 
@@ -444,8 +413,6 @@
           video: false 
         });
         state.isMicVerified = true;
-
-        // Start muted
         state.audioStream.getAudioTracks().forEach(track => track.enabled = false);
 
         state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -455,13 +422,13 @@
         source.connect(state.analyserNode);
 
         elements.micBanner.classList.add('hidden');
-        logDiag("Microphone active & audio analyzer attached.");
+        logDiag("Microphone active.");
         startVisualizerAnimation();
         return true;
       } catch (err) {
         state.isMicVerified = false;
         elements.micBanner.classList.remove('hidden');
-        logDiag("Microphone access denied or unavailable.", 'error');
+        logDiag("Microphone access denied.", 'error');
         return false;
       }
     }
@@ -490,7 +457,6 @@
       render();
     }
 
-    // FIREBASE INITIALIZATION & AUTHENTICATION ENGINE
     async function initFirebase() {
       state.firebaseStatus = 'CONNECTING';
       updateStatusUI();
@@ -500,13 +466,12 @@
         state.db = getFirestore(app);
         state.auth = getAuth(app);
 
-        // Auth State Listener
         onAuthStateChanged(state.auth, (user) => {
           if (user) {
             state.userId = user.uid;
             state.firebaseStatus = 'CONNECTED';
             updateStatusUI();
-            logDiag(`Authenticated as User ID: ${user.uid.substring(0, 8)}...`);
+            logDiag(`Authenticated UID: ${user.uid.substring(0, 8)}`);
 
             setupBannedListener();
             setupChannelPresenceAndSignaling();
@@ -515,43 +480,34 @@
             updateStatusUI();
           }
         });
-
       } catch (err) {
         state.firebaseStatus = 'ERROR';
         updateStatusUI();
-        logDiag(`Firebase Initialization Error: ${err.message}`, 'error');
+        logDiag(`Firebase Error: ${err.message}`, 'error');
       }
     }
 
-    // Handles Anonymous Callsign Login
     async function handleAnonymousLogin(callsign) {
       hideAuthError();
       try {
         state.userName = callsign;
         state.isAdmin = false;
         updateRoleDisplay();
-
         await signInAnonymously(state.auth);
         elements.authModal.classList.add('hidden');
-        logDiag(`Signed in anonymously as Callsign: ${callsign}`);
       } catch (err) {
-        showAuthError(`Callsign authentication failed: ${err.message}`);
+        showAuthError(`Auth failed: ${err.message}`);
       }
     }
 
-    // Handles Admin Email/Password Login
     async function handleAdminLogin(email, password) {
       hideAuthError();
       try {
-        const userCred = await signInWithEmailAndPassword(state.auth, email, password);
-        
-        // Mark as Admin & Set Name to "Bryan Wedekind" upon successful admin auth
+        await signInWithEmailAndPassword(state.auth, email, password);
         state.userName = "Bryan Wedekind";
         state.isAdmin = true;
         updateRoleDisplay();
-
         elements.authModal.classList.add('hidden');
-        logDiag(`Admin Authentication Successful! Logged in as Bryan Wedekind (${userCred.user.email})`, 'warn');
       } catch (err) {
         showAuthError(`Admin Login Failed: ${err.message}`);
       }
@@ -559,7 +515,6 @@
 
     function updateRoleDisplay() {
       elements.currentUserDisplay.textContent = state.userName;
-
       if (state.isAdmin) {
         elements.adminBadge.classList.remove('hidden');
         elements.userRoleBadge.textContent = 'SUPER ADMIN';
@@ -575,12 +530,10 @@
       elements.authErrorMsg.textContent = msg;
       elements.authErrorBox.classList.remove('hidden');
     }
-
     function hideAuthError() {
       elements.authErrorBox.classList.add('hidden');
     }
 
-    // BAN & KICK MONITORS
     function setupBannedListener() {
       if (!state.db || !state.userId) return;
       const banRef = collection(state.db, 'artifacts', state.appId, 'public', 'data', 'walkie_banned');
@@ -600,26 +553,22 @@
           elements.bannedBanner.classList.remove('hidden');
           elements.pttBtn.disabled = true;
           stopTransmission();
-          logDiag("CRITICAL: You are BANNED from this walkie-talkie network.", 'error');
+          logDiag("You are BANNED.", 'error');
         } else {
           elements.bannedBanner.classList.add('hidden');
           elements.pttBtn.disabled = false;
         }
-      }, (err) => {
-        logDiag(`Ban check warning: ${err.message}`, 'warn');
       });
     }
 
-    // PRESENCE AND WEBRTC SIGNALING (FIRESTORE)
+    // FIREBASE PRESENCE & CLEANUP
     function setupChannelPresenceAndSignaling() {
       if (!state.db || !state.userId || state.isBanned) return;
-
       if (state.unsubscribePresence) state.unsubscribePresence();
       if (state.unsubscribeSignals) state.unsubscribeSignals();
 
       const ch = state.currentChannel;
       
-      // Presence Snapshot
       const presenceRef = collection(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${ch}`);
       state.unsubscribePresence = onSnapshot(presenceRef, (snapshot) => {
         const newUsers = {};
@@ -630,195 +579,139 @@
           if (doc.id === state.userId) selfExistsInRoster = true;
         });
 
-        // If user was kicked from Firestore presence doc
-        if (!selfExistsInRoster && Object.keys(state.channelUsers).length > 0) {
-          logDiag("Notice: You were removed from the channel roster.", 'warn');
+        // KICK ENFORCEMENT: If you were in the channel but admin deleted your document
+        if (!selfExistsInRoster && Object.keys(state.channelUsers).length > 0 && state.firebaseStatus === 'CONNECTED') {
+          logDiag("You were KICKED from this channel.", 'error');
+          stopTransmission();
         }
 
         state.channelUsers = newUsers;
         updateRosterUI();
         manageWebRTCPeerConnections();
-      }, (err) => {
-        logDiag(`Presence Error: ${err.message}`, 'error');
       });
 
-      // Publish local user presence
       publishPresence();
 
-      // Signals Listener
       const signalsRef = collection(state.db, 'artifacts', state.appId, 'public', 'data', `signals_ch${ch}`);
       state.unsubscribeSignals = onSnapshot(signalsRef, (snapshot) => {
         snapshot.docChanges().forEach(change => {
           if (change.type === 'added') {
             const signal = change.doc.data();
-            if (signal.to === state.userId) {
-              handleIncomingSignal(signal, change.doc.id);
-            }
+            if (signal.to === state.userId) handleIncomingSignal(signal, change.doc.id);
           }
         });
-      }, (err) => {
-        logDiag(`Signals Error: ${err.message}`, 'error');
       });
     }
 
     function publishPresence() {
       if (!state.db || !state.userId || state.isBanned) return;
-      const ch = state.currentChannel;
-      const myDoc = doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${ch}`, state.userId);
-      
+      const myDoc = doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${state.currentChannel}`, state.userId);
       setDoc(myDoc, {
         id: state.userId,
         name: state.userName,
         isAdmin: state.isAdmin,
         isTransmitting: state.isTransmitting,
         updatedAt: Date.now()
-      }, { merge: true }).catch(err => logDiag(`Publish presence error: ${err.message}`, 'warn'));
+      }, { merge: true }).catch(()=>{});
     }
 
-    // WEBRTC MESH CONNECTION HANDLERS
+    // DELETE GHOST PRESENCE WHEN CLOSING APP
+    window.addEventListener('beforeunload', () => {
+      if (state.db && state.userId) {
+        const myDoc = doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${state.currentChannel}`, state.userId);
+        deleteDoc(myDoc).catch(()=>{});
+      }
+    });
+
     const iceServers = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]
     };
 
     function manageWebRTCPeerConnections() {
       const activeIds = Object.keys(state.channelUsers);
 
-      // Clean up disconnected peers
       Object.keys(state.peerConnections).forEach(peerId => {
-        if (!activeIds.includes(peerId)) {
-          closePeerConnection(peerId);
-        }
+        if (!activeIds.includes(peerId)) closePeerConnection(peerId);
       });
 
-      // Initiate connection (deterministic rule: smaller ID creates offer)
       activeIds.forEach(peerId => {
         if (peerId !== state.userId && !state.peerConnections[peerId]) {
-          if (state.userId < peerId) {
-            initiatePeerOffer(peerId);
-          }
+          if (state.userId < peerId) initiatePeerOffer(peerId);
         }
       });
-
       updateStatusUI();
     }
 
     function initiatePeerOffer(peerId) {
-      logDiag(`Creating WebRTC offer -> ${peerId.substring(0, 6)}`);
       const pc = createPeerConnection(peerId);
-
-      pc.createOffer()
-        .then(offer => pc.setLocalDescription(offer))
-        .then(() => {
-          sendSignal({
-            type: 'offer',
-            from: state.userId,
-            to: peerId,
-            sdp: pc.localDescription.sdp
-          });
-        })
-        .catch(err => logDiag(`Offer failed: ${err.message}`, 'error'));
+      pc.createOffer().then(offer => pc.setLocalDescription(offer)).then(() => {
+        sendSignal({ type: 'offer', from: state.userId, to: peerId, sdp: pc.localDescription.sdp });
+      }).catch(()=>{});
     }
 
     function createPeerConnection(peerId) {
       if (state.peerConnections[peerId]) return state.peerConnections[peerId];
-
       const pc = new RTCPeerConnection(iceServers);
 
       if (state.audioStream) {
-        state.audioStream.getTracks().forEach(track => {
-          pc.addTrack(track, state.audioStream);
-        });
+        state.audioStream.getTracks().forEach(track => pc.addTrack(track, state.audioStream));
       }
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
-          sendSignal({
-            type: 'ice',
-            from: state.userId,
-            to: peerId,
-            candidate: event.candidate.toJSON()
-          });
+          sendSignal({ type: 'ice', from: state.userId, to: peerId, candidate: event.candidate.toJSON() });
         }
       };
 
       pc.onconnectionstatechange = () => {
-        logDiag(`Peer ${peerId.substring(0, 6)} state: ${pc.connectionState}`);
-        if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-          closePeerConnection(peerId);
-        }
+        if (pc.connectionState === 'failed' || pc.connectionState === 'closed') closePeerConnection(peerId);
         updateStatusUI();
       };
 
+      // AUDIO ROUTING FIX
       pc.ontrack = (event) => {
-    const stream = event.streams[0];
-    
-    let audioElement = document.getElementById('audio-' + stream.id);
-    
-    if (!audioElement) {
-        audioElement = document.createElement('audio');
-        audioElement.id = 'audio-' + stream.id;
-        audioElement.autoplay = true;
-        audioElement.playsInline = true; 
-        audioElement.style.display = 'none'; 
-        document.body.appendChild(audioElement);
-    }
-    
-    audioElement.srcObject = stream;
-    
-   // Ensure track is unmuted and forced to play
-      event.track.onunmute = () => {
-        audioElement.play().catch(err => {
-          logDiag(`Autoplay blocked remote audio: ${err.message}`, 'warn');
-        });
+        const stream = event.streams[0];
+        let audioElement = document.getElementById('audio-' + stream.id);
+        
+        if (!audioElement) {
+            audioElement = document.createElement('audio');
+            audioElement.id = 'audio-' + stream.id;
+            audioElement.autoplay = true;
+            audioElement.playsInline = true;
+            elements.remoteAudioContainer.appendChild(audioElement);
+        }
+        
+        audioElement.srcObject = stream;
+        
+        // Force play when the remote user unmutes their stream
+        event.track.onunmute = () => {
+          audioElement.play().catch(e => logDiag(`Autoplay block: ${e.message}`, 'warn'));
+        };
+
+        audioElement.play().catch(e => logDiag(`Autoplay block: ${e.message}`, 'warn'));
       };
 
-        audioElement.play().catch(error => {
-          logDiag(`Browser blocked audio autoplay: ${error.message}`, 'warn');
-        });
-      };
       state.peerConnections[peerId] = pc;
       return pc;
     }
 
     function handleIncomingSignal(signal, signalDocId) {
       const fromPeer = signal.from;
-
       if (signal.type === 'offer') {
-        logDiag(`Received offer from ${fromPeer.substring(0, 6)}`);
         const pc = createPeerConnection(fromPeer);
         pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }))
           .then(() => pc.createAnswer())
           .then(answer => pc.setLocalDescription(answer))
-          .then(() => {
-            sendSignal({
-              type: 'answer',
-              from: state.userId,
-              to: fromPeer,
-              sdp: pc.localDescription.sdp
-            });
-          })
-          .catch(err => logDiag(`Answer fail: ${err.message}`, 'error'));
-
+          .then(() => { sendSignal({ type: 'answer', from: state.userId, to: fromPeer, sdp: pc.localDescription.sdp }); })
+          .catch(()=>{});
       } else if (signal.type === 'answer') {
-        logDiag(`Received answer from ${fromPeer.substring(0, 6)}`);
         const pc = state.peerConnections[fromPeer];
-        if (pc) {
-          pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }))
-            .catch(err => logDiag(`Remote SDP error: ${err.message}`, 'error'));
-        }
-
+        if (pc) pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp })).catch(()=>{});
       } else if (signal.type === 'ice') {
         const pc = state.peerConnections[fromPeer];
-        if (pc && signal.candidate) {
-          pc.addIceCandidate(new RTCIceCandidate(signal.candidate))
-            .catch(err => logDiag(`ICE Candidate error: ${err.message}`, 'warn'));
-        }
+        if (pc && signal.candidate) pc.addIceCandidate(new RTCIceCandidate(signal.candidate)).catch(()=>{});
       }
 
-      // Delete processed signal document
       if (state.db && signalDocId) {
         deleteDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', `signals_ch${state.currentChannel}`, signalDocId)).catch(() => {});
       }
@@ -826,12 +719,8 @@
 
     function sendSignal(signalData) {
       if (!state.db) return;
-      const ch = state.currentChannel;
-      const signalRef = doc(collection(state.db, 'artifacts', state.appId, 'public', 'data', `signals_ch${ch}`));
-      setDoc(signalRef, {
-        ...signalData,
-        timestamp: Date.now()
-      }).catch(err => logDiag(`Send signal fail: ${err.message}`, 'warn'));
+      const signalRef = doc(collection(state.db, 'artifacts', state.appId, 'public', 'data', `signals_ch${state.currentChannel}`));
+      setDoc(signalRef, { ...signalData, timestamp: Date.now() }).catch(()=>{});
     }
 
     function closePeerConnection(peerId) {
@@ -839,33 +728,24 @@
         state.peerConnections[peerId].close();
         delete state.peerConnections[peerId];
       }
-      const audioEl = document.getElementById(`audio_${peerId}`);
-      if (audioEl) audioEl.remove();
       updateStatusUI();
     }
 
-    // PTT TRANSMISSION CONTROLS
     function startTransmission() {
       if (state.isBanned) return;
-      if (!state.isMicVerified) {
-        requestMicrophone();
-        return;
-      }
+      if (!state.isMicVerified) { requestMicrophone(); return; }
       if (state.isTransmitting) return;
 
       state.isTransmitting = true;
       playAudioFx('start');
 
-      if (state.audioStream) {
-        state.audioStream.getAudioTracks().forEach(track => track.enabled = true);
-      }
+      if (state.audioStream) state.audioStream.getAudioTracks().forEach(track => track.enabled = true);
 
       elements.pttBtn.classList.add('ptt-active', 'scale-95');
       elements.visualizerOverlayText.textContent = "TRANSMITTING...";
       elements.visualizerOverlayText.className = "absolute inset-0 flex items-center justify-center text-[11px] text-red-400 font-bold uppercase tracking-wider animate-pulse pointer-events-none";
 
       publishPresence();
-      logDiag("PTT Active: Transmitting mic audio...");
     }
 
     function stopTransmission() {
@@ -874,28 +754,22 @@
       state.isTransmitting = false;
       playAudioFx('stop');
 
-      if (state.audioStream) {
-        state.audioStream.getAudioTracks().forEach(track => track.enabled = false);
-      }
+      if (state.audioStream) state.audioStream.getAudioTracks().forEach(track => track.enabled = false);
 
       elements.pttBtn.classList.remove('ptt-active', 'scale-95');
       elements.visualizerOverlayText.textContent = "READY / RECEIVING";
       elements.visualizerOverlayText.className = "absolute inset-0 flex items-center justify-center text-[11px] text-slate-500 font-bold uppercase tracking-wider pointer-events-none";
 
       publishPresence();
-      logDiag("PTT Released: Idle listening mode.");
     }
 
-    // UI RENDERERS & CHANNEL CONTROLS
     function renderChannelButtons() {
       elements.channelButtonsContainer.innerHTML = '';
       for (let i = 1; i <= 8; i++) {
         const btn = document.createElement('button');
         const isActive = state.currentChannel === i;
         btn.className = `py-2 rounded font-bold text-xs border transition flex flex-col items-center ${
-          isActive 
-            ? 'bg-emerald-600 border-emerald-400 text-slate-950 shadow-md' 
-            : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+          isActive ? 'bg-emerald-600 border-emerald-400 text-slate-950 shadow-md' : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
         }`;
         btn.innerHTML = `<span>CH-${i}</span>`;
         btn.onclick = () => switchChannel(i);
@@ -906,7 +780,11 @@
     function switchChannel(chNumber) {
       if (state.isTransmitting) stopTransmission();
 
-      // Close open peer connections
+      // FIX GHOST USERS ON CHANNEL SWITCH
+      if (state.db && state.userId) {
+        deleteDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${state.currentChannel}`, state.userId)).catch(()=>{});
+      }
+
       Object.keys(state.peerConnections).forEach(peerId => closePeerConnection(peerId));
 
       state.currentChannel = chNumber;
@@ -914,8 +792,6 @@
       elements.lcdFreq.textContent = channelFrequencies[chNumber - 1];
 
       renderChannelButtons();
-      logDiag(`Switched frequency channel to CH-${chNumber} (${channelFrequencies[chNumber - 1]})`);
-
       setupChannelPresenceAndSignaling();
     }
 
@@ -925,7 +801,7 @@
       elements.userRoster.innerHTML = '';
 
       if (usersList.length === 0) {
-        elements.userRoster.innerHTML = `<div class="text-[11px] text-slate-500 text-center py-2">No other operators online on this frequency.</div>`;
+        elements.userRoster.innerHTML = `<div class="text-[11px] text-slate-500 text-center py-2">No other operators online.</div>`;
         return;
       }
 
@@ -935,9 +811,7 @@
 
         const item = document.createElement('div');
         item.className = `flex items-center justify-between p-2 rounded text-xs border ${
-          u.isTransmitting 
-            ? 'bg-red-950/40 border-red-500/50 text-red-200 animate-pulse' 
-            : 'bg-slate-900/60 border-slate-800 text-slate-300'
+          u.isTransmitting ? 'bg-red-950/40 border-red-500/50 text-red-200 animate-pulse' : 'bg-slate-900/60 border-slate-800 text-slate-300'
         }`;
 
         item.innerHTML = `
@@ -948,14 +822,9 @@
             ${u.isTransmitting ? '<span class="text-[9px] bg-red-600 px-1 rounded text-white font-bold">TX</span>' : ''}
           </div>
           <div class="flex items-center space-x-1 flex-shrink-0">
-            ${
-              state.isAdmin && !isSelf ? `
-                <button data-action="kick" data-id="${u.id}" class="px-2 py-0.5 bg-amber-600/30 hover:bg-amber-600 text-amber-200 text-[10px] font-bold rounded border border-amber-500/40">
-                  Kick
-                </button>
-                <button data-action="ban" data-id="${u.id}" data-name="${u.name}" class="px-2 py-0.5 bg-red-600/30 hover:bg-red-600 text-red-200 text-[10px] font-bold rounded border border-red-500/40">
-                  Ban
-                </button>
+            ${state.isAdmin && !isSelf ? `
+                <button data-action="kick" data-id="${u.id}" class="px-2 py-0.5 bg-amber-600/30 hover:bg-amber-600 text-amber-200 text-[10px] font-bold rounded border border-amber-500/40">Kick</button>
+                <button data-action="ban" data-id="${u.id}" data-name="${u.name}" class="px-2 py-0.5 bg-red-600/30 hover:bg-red-600 text-red-200 text-[10px] font-bold rounded border border-red-500/40">Ban</button>
               ` : ''
             }
           </div>
@@ -964,71 +833,49 @@
         if (state.isAdmin && !isSelf) {
           const kickBtn = item.querySelector('[data-action="kick"]');
           const banBtn = item.querySelector('[data-action="ban"]');
-
           if (kickBtn) kickBtn.onclick = () => adminKickUser(u.id);
           if (banBtn) banBtn.onclick = () => adminBanUser(u.id, u.name);
         }
-
         elements.userRoster.appendChild(item);
       });
     }
 
-    // ADMIN ACTIONS (KICK & BAN)
     function adminKickUser(targetId) {
       if (!state.isAdmin || !state.db) return;
-      const ch = state.currentChannel;
-      deleteDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${ch}`, targetId))
-        .then(() => logDiag(`Admin kicked operator ${targetId.substring(0, 6)}`, 'warn'))
-        .catch(err => logDiag(`Kick error: ${err.message}`, 'error'));
+      deleteDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${state.currentChannel}`, targetId)).catch(()=>{});
     }
 
     function adminBanUser(targetId, targetName) {
       if (!state.isAdmin || !state.db) return;
-      const banDoc = doc(state.db, 'artifacts', state.appId, 'public', 'data', 'walkie_banned', targetId);
-      setDoc(banDoc, {
-        id: targetId,
-        name: targetName,
-        bannedBy: state.userName,
-        timestamp: Date.now()
-      }).then(() => {
-        logDiag(`Admin BANNED user ${targetName}`, 'error');
-        adminKickUser(targetId);
-      }).catch(err => logDiag(`Ban error: ${err.message}`, 'error'));
+      setDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', 'walkie_banned', targetId), {
+        id: targetId, name: targetName, timestamp: Date.now()
+      }).then(() => adminKickUser(targetId)).catch(()=>{});
     }
 
-    // EVENT LISTENERS BINDING
     function setupEventListeners() {
-      // PTT Touch & Mouse triggers
       elements.pttBtn.addEventListener('mousedown', startTransmission);
       elements.pttBtn.addEventListener('mouseup', stopTransmission);
       elements.pttBtn.addEventListener('mouseleave', stopTransmission);
-
       elements.pttBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startTransmission(); });
       elements.pttBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopTransmission(); });
       elements.pttBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); stopTransmission(); });
 
-      // Keyboard Spacebar PTT
       window.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && !e.repeat && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-          e.preventDefault();
-          startTransmission();
+          e.preventDefault(); startTransmission();
         }
       });
       window.addEventListener('keyup', (e) => {
         if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-          e.preventDefault();
-          stopTransmission();
+          e.preventDefault(); stopTransmission();
         }
       });
 
-      // Mic Banner Request
       elements.requestMicBtn.addEventListener('click', requestMicrophone);
 
-      // Auth Mode Toggle (Callsign vs Admin Email)
       elements.toggleAuthModeBtn.addEventListener('click', () => {
         state.isAdminMode = !state.isAdminMode;
         hideAuthError();
-
         if (state.isAdminMode) {
           elements.anonymousAuthForm.classList.add('hidden');
           elements.adminAuthForm.classList.remove('hidden');
@@ -1047,48 +894,28 @@
         lucide.createIcons();
       });
 
-      // Anonymous Callsign Submit
       elements.anonymousAuthForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const callsign = elements.callsignInput.value.trim();
-        if (callsign) {
-          handleAnonymousLogin(callsign);
-        }
+        if (callsign) handleAnonymousLogin(callsign);
       });
 
-      // Admin Email Login Submit
       elements.adminAuthForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const email = elements.adminEmailInput.value.trim();
         const pass = elements.adminPasswordInput.value;
-        if (email && pass) {
-          handleAdminLogin(email, pass);
-        }
+        if (email && pass) handleAdminLogin(email, pass);
       });
 
-      // Re-open Auth Modal button
-      elements.switchAuthModalBtn.addEventListener('click', () => {
-        elements.authModal.classList.remove('hidden');
-      });
-
-      // Diagnostics Panel Toggle
-      elements.toggleDiagBtn.addEventListener('click', () => {
-        elements.diagPanel.classList.toggle('hidden');
-      });
-      elements.clearLogBtn.addEventListener('click', () => {
-        elements.diagLogContent.innerHTML = '';
-      });
+      elements.switchAuthModalBtn.addEventListener('click', () => elements.authModal.classList.remove('hidden'));
+      elements.toggleDiagBtn.addEventListener('click', () => elements.diagPanel.classList.toggle('hidden'));
+      elements.clearLogBtn.addEventListener('click', () => elements.diagLogContent.innerHTML = '');
     }
 
-    // INITIAL APP BOOTSTRAP
     window.onload = async function() {
       renderChannelButtons();
       setupEventListeners();
-      
-      // Request microphone access
       await requestMicrophone();
-      
-      // Initialize Firebase App & Authentication
       await initFirebase();
     };
   </script>
