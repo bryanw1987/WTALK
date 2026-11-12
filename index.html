@@ -380,7 +380,7 @@
     document.addEventListener('click', wakeAudioEngine);
     document.addEventListener('touchstart', wakeAudioEngine);
 
-    async function requestMicrophone() {
+   async function requestMicrophone() {
       try {
         state.audioStream = await navigator.mediaDevices.getUserMedia({ 
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, 
@@ -390,7 +390,12 @@
         state.audioStream.getAudioTracks().forEach(track => track.enabled = false);
 
         state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const source = state.audioContext.createMediaStreamSource(state.audioStream);
+        
+        // SAFARI/MOBILE BUG FIX: Clone the stream before giving it to the visualizer
+        // Otherwise, the visualizer steals the audio track and mutes WebRTC
+        const clonedStream = state.audioStream.clone();
+        const source = state.audioContext.createMediaStreamSource(clonedStream);
+        
         state.analyserNode = state.audioContext.createAnalyser();
         state.analyserNode.fftSize = 64;
         source.connect(state.analyserNode);
