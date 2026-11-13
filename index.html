@@ -232,6 +232,7 @@
       audioContext: null,
       analyserNode: null,
       
+      app: null, // Add app to state for easier access
       db: null,
       auth: null,
       unsubscribePresence: null,
@@ -387,14 +388,14 @@
           video: false 
         });
         state.isMicVerified = true;
+        
+        // Ensure initial state is muted for WebRTC
         state.audioStream.getAudioTracks().forEach(track => track.enabled = false);
 
         state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         
-        // SAFARI/MOBILE BUG FIX: Clone the stream before giving it to the visualizer
-        // Otherwise, the visualizer steals the audio track and mutes WebRTC
-        const clonedStream = state.audioStream.clone();
-        const source = state.audioContext.createMediaStreamSource(clonedStream);
+        // Connect the microphone stream to the visualizer
+        const source = state.audioContext.createMediaStreamSource(state.audioStream);
         
         state.analyserNode = state.audioContext.createAnalyser();
         state.analyserNode.fftSize = 64;
@@ -441,9 +442,9 @@
       updateStatusUI();
 
       try {
-        const app = initializeApp(firebaseConfig);
-        state.db = getFirestore(app);
-        state.auth = getAuth(app);
+        state.app = initializeApp(firebaseConfig);
+        state.db = getFirestore(state.app);
+        state.auth = getAuth(state.app);
 
         onAuthStateChanged(state.auth, (user) => {
           if (user) {
@@ -659,23 +660,9 @@
         updateStatusUI();
       };
 
-      // AUDIO ROUTING FIX
-     // AUDIO ROUTING FIX: Bypass mobile HTML autoplay blocks
       pc.ontrack = (event) => {
         const stream = event.streams[0];
         
-        // Route directly through the awake AudioContext (guarantees speaker output)
-        if (state.audioContext) {
-          try {
-            const remoteSource = state.audioContext.createMediaStreamSource(stream);
-            remoteSource.connect(state.audioContext.destination);
-            logDiag("Remote audio routed to speakers.", 'warn');
-          } catch (e) {
-            logDiag(`AudioContext routing failed: ${e.message}`);
-          }
-        }
-
-        // Keep the hidden audio element alive for browser garbage-collection reasons
         let audioElement = document.getElementById('audio-' + stream.id);
         if (!audioElement) {
             audioElement = document.createElement('audio');
