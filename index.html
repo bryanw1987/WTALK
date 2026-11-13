@@ -195,7 +195,6 @@
       </div>
     </div>
   </div>
-
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -395,11 +394,9 @@
         
         state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         
-        // Clone the stream to isolate the visualizer from WebRTC
         const clonedStream = state.audioStream.clone();
         const source = state.audioContext.createMediaStreamSource(clonedStream);
         
-        // Volume controller (GainNode) to act as local mute switch without breaking WebRTC
         state.micGainNode = state.audioContext.createGain();
         state.micGainNode.gain.value = 0; 
         
@@ -444,6 +441,7 @@
       }
       render();
     }
+
     async function initFirebase() {
       state.firebaseStatus = 'CONNECTING';
       updateStatusUI();
@@ -565,7 +563,7 @@
 
         snapshot.forEach(doc => {
           const data = doc.data();
-          if (now - data.updatedAt < 15000) {
+          if (Math.abs(now - data.updatedAt) < 60000) {
             newUsers[doc.id] = data;
             if (doc.id === state.userId) selfExistsInRoster = true;
           } else if (state.isAdmin && doc.id !== state.userId) {
@@ -658,7 +656,6 @@
         updateStatusUI();
       };
 
-      // PRE-CREATE AUDIO ELEMENT FOR MOBILE AUTOPLAY BYPASS
       let audioElement = document.getElementById('audio-' + peerId);
       if (!audioElement) {
           audioElement = document.createElement('audio');
@@ -839,7 +836,6 @@
     }
 
     function setupEventListeners() {
-      // MOBILE VISIBILITY FIX: Force heartbeat sync when tab re-opens
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
           if (state.audioContext && state.audioContext.state === 'suspended') {
