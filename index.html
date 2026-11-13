@@ -17,7 +17,7 @@
 <body class="h-full bg-slate-950 p-2 flex items-center justify-center overflow-hidden">
 <main class="w-full max-w-md h-[96vh] max-h-[900px] bg-slate-900 border-2 border-slate-700 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
   <header class="p-3 border-b border-slate-800">
-    <div class="flex justify-between items-center"><b class="text-emerald-400 tracking-widest text-xs">WTALK WebRTC v1.35B STABLE</b><button id="logout" class="hidden text-xs text-slate-400 hover:text-white">Sign out</button></div>
+    <div class="flex justify-between items-center"><b class="text-emerald-400 tracking-widest text-xs">WTALK WebRTC v1.35C STABLE</b><button id="logout" class="hidden text-xs text-slate-400 hover:text-white">Sign out</button></div>
     <div class="grid grid-cols-2 gap-2 mt-2 text-[10px] mono">
       <div class="bg-slate-950 border border-slate-800 rounded p-2">FIREBASE: <span id="fb" class="text-amber-400">INIT</span></div>
       <div class="bg-slate-950 border border-slate-800 rounded p-2">WEBRTC: <span id="rtc" class="text-slate-400">STANDBY</span></div>
@@ -122,11 +122,22 @@ async function handleSignal(sig,id){
 }
 function status(){$('rtc').textContent=S.pcs.size?`${S.pcs.size} PEER${S.pcs.size===1?'':'S'}`:'STANDBY';$('rtc').className=S.pcs.size?'text-emerald-400':'text-slate-400'}
 function render(){
-  const now=Date.now(),users=[];$('roster').innerHTML='';
-  for(const [id,u] of Object.entries(S.users)){const age=now-(u.updatedAt||0);if(age>30000){deleteDoc(doc(path('presence'),id)).catch(()=>{});continue}users.push(u)}
-  $('count').textContent=`${users.length} ONLINE`;
-  users.forEach(u=>{const d=document.createElement('div');d.className=`p-2 rounded border text-xs flex items-center justify-between gap-2 ${u.isTransmitting?'border-red-500 bg-red-950/50':'border-slate-800 bg-slate-900'}`;const label=document.createElement('span');label.className='truncate';label.textContent=`${u.name}${u.id===S.uid?' (You)':''}${u.isAdmin?' • ADMIN':''}${u.isTransmitting?' • TX':''}`;d.appendChild(label);if(S.admin&&u.id!==S.uid){const box=document.createElement('span');box.className='flex gap-1';const k=document.createElement('button');k.textContent='Kick';k.className='px-2 py-1 bg-amber-700 rounded';k.onclick=()=>deleteDoc(doc(path('presence'),u.id));const b=document.createElement('button');b.textContent='Ban';b.className='px-2 py-1 bg-red-700 rounded';b.onclick=async()=>{await setDoc(doc(db,'artifacts',APP,'public','data','walkie_banned',u.id),{name:u.name,timestamp:Date.now()});await deleteDoc(doc(path('presence'),u.id))};box.append(k,b);d.appendChild(box)}$('roster').appendChild(d)});
-  const active=new Set(users.map(u=>u.id));for(const id of S.pcs.keys())if(!active.has(id))closePeer(id);for(const id of active)if(id!==S.uid&&!S.pcs.has(id)&&S.uid<id)makeOffer(id).catch(console.warn);const tx=users.find(u=>u.isTransmitting&&u.id!==S.uid);$('talker').textContent=S.tx?'TRANSMITTING':tx?`${tx.name} TRANSMITTING`:'READY';
+  const now=Date.now();
+  const users=Object.values(S.users).filter(u=>{const serverMs=u.updatedAtServer?.toMillis?.();return !serverMs || (now-serverMs)<45000;});
+  $('count').textContent=`${users.length} ONLINE`;$('roster').innerHTML='';
+  users.forEach(u=>{
+    const d=document.createElement('div');d.className=`p-2 rounded border text-xs flex items-center justify-between gap-2 ${u.isTransmitting?'border-red-500 bg-red-950/50':'border-slate-800 bg-slate-900'}`;
+    const label=document.createElement('span');label.className='truncate';label.textContent=`${u.name}${u.id===S.uid?' (You)':''}${u.isAdmin?' • ADMIN':''}${u.isTransmitting?' • TX':''}`;d.appendChild(label);
+    if(S.admin&&u.id!==S.uid){
+      const box=document.createElement('span');box.className='flex gap-1';
+      const k=document.createElement('button');k.textContent='Kick';k.className='px-2 py-1 bg-amber-700 rounded';k.onclick=()=>deleteDoc(doc(path('presence'),u.id)).catch(e=>alert(`Kick failed: ${e.message}`));
+      const b=document.createElement('button');b.textContent='Ban';b.className='px-2 py-1 bg-red-700 rounded';b.onclick=async()=>{try{await setDoc(doc(db,'artifacts',APP,'public','data','walkie_banned',u.id),{name:u.name,timestamp:Date.now()});await deleteDoc(doc(path('presence'),u.id))}catch(e){alert(`Ban failed: ${e.message}`)}};
+      box.append(k,b);d.appendChild(box)
+    }
+    $('roster').appendChild(d)
+  });
+  const active=new Set(users.map(u=>u.id));for(const id of S.pcs.keys())if(!active.has(id))closePeer(id);for(const id of active)if(id!==S.uid&&!S.pcs.has(id)&&S.uid<id)makeOffer(id).catch(console.warn);
+  const tx=users.find(u=>u.isTransmitting&&u.id!==S.uid);$('talker').textContent=S.tx?'TRANSMITTING':tx?`${tx.name} TRANSMITTING`:'READY';
 }
 async function listen(){
   if(!S.uid||!S.callsignConfirmed)return;
@@ -146,11 +157,17 @@ $('ptt').addEventListener('contextmenu',e=>e.preventDefault());$('ptt').addEvent
 addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){e.preventDefault();startTx()}});addEventListener('keyup',e=>{if(e.code==='Space'){e.preventDefault();stopTx()}});addEventListener('pagehide',()=>removePresence());document.addEventListener('visibilitychange',()=>{if(document.hidden)stopTx();else publish()});
 
 async function claimCallsign(name){
-  const normalized=name.toLowerCase();
+  const normalized=name.trim().toLowerCase();
   const snap=await new Promise((resolve,reject)=>{let off;off=onSnapshot(path('presence'),x=>{off?.();resolve(x)},reject)});
-  const now=Date.now();let duplicate=false;
-  for(const d of snap.docs){const u=d.data(),age=now-(u.updatedAt||0);if(age>30000){deleteDoc(d.ref).catch(()=>{});continue}if(d.id!==S.uid&&u.name?.trim().toLowerCase()===normalized)duplicate=true}
-  return !duplicate;
+  const now=Date.now();
+  for(const d of snap.docs){
+    if(d.id===S.uid)continue;
+    const u=d.data();
+    const serverMs=u.updatedAtServer?.toMillis?.();
+    const active=!serverMs || (now-serverMs)<45000;
+    if(active && u.name?.trim().toLowerCase()===normalized)return false;
+  }
+  return true;
 }
 $('callsignForm').onsubmit=async e=>{e.preventDefault();const name=$('preJoinCallsign').value.trim().replace(/\s+/g,' ');if(!name)return;const submit=e.submitter;submit.disabled=true;try{if(!(await claimCallsign(name))){$('notice').textContent=`Callsign "${name}" is already active. Choose another.`;$('callsignModal').classList.remove('hidden');return}S.name=name;S.callsignConfirmed=true;localStorage.setItem(`wtalkCallsign:${S.uid}`,name);$('who').textContent=name;$('callsignModal').classList.add('hidden');$('notice').textContent='Callsign set. Enable the microphone when ready.';await listen()}finally{submit.disabled=false}};
 $('callsignSignout').onclick=async()=>{S.callsignConfirmed=false;$('callsignModal').classList.add('hidden');await signOut(auth)};
