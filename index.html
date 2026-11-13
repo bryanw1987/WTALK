@@ -17,7 +17,7 @@
 <body class="h-full bg-slate-950 p-2 flex items-center justify-center overflow-hidden">
 <main class="w-full max-w-md h-[96vh] max-h-[900px] bg-slate-900 border-2 border-slate-700 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
   <header class="p-3 border-b border-slate-800">
-    <div class="flex justify-between items-center"><b class="text-emerald-400 tracking-widest text-xs">WTALK WebRTC v1.30</b><button id="logout" class="hidden text-xs text-slate-400 hover:text-white">Sign out</button></div>
+    <div class="flex justify-between items-center"><b class="text-emerald-400 tracking-widest text-xs">WTALK WebRTC v1.32</b><button id="logout" class="hidden text-xs text-slate-400 hover:text-white">Sign out</button></div>
     <div class="grid grid-cols-2 gap-2 mt-2 text-[10px] mono">
       <div class="bg-slate-950 border border-slate-800 rounded p-2">FIREBASE: <span id="fb" class="text-amber-400">INIT</span></div>
       <div class="bg-slate-950 border border-slate-800 rounded p-2">WEBRTC: <span id="rtc" class="text-slate-400">STANDBY</span></div>
@@ -39,7 +39,7 @@
 
 <div id="authModal" class="fixed inset-0 bg-black/85 backdrop-blur flex items-center justify-center p-4 z-50">
   <div class="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4">
-    <h1 class="text-lg font-bold">Sign in to WTALK</h1>
+    <h1 class="text-lg font-bold">Sign in or join WTALK</h1>
     <div id="authError" class="hidden text-xs text-red-200 bg-red-950 border border-red-700 rounded p-2"></div>
     <form id="emailForm" class="space-y-3">
       <input id="email" type="email" autocomplete="email" required placeholder="Email" class="w-full bg-slate-950 border border-slate-700 rounded p-2">
@@ -48,18 +48,35 @@
     </form>
     <div class="flex items-center gap-2 text-xs text-slate-500"><span class="h-px bg-slate-700 flex-1"></span>OR<span class="h-px bg-slate-700 flex-1"></span></div>
     <button id="google" class="w-full p-2.5 bg-white text-slate-900 rounded font-bold">Continue with Google</button>
+    <div class="flex items-center gap-2 text-xs text-slate-500"><span class="h-px bg-slate-700 flex-1"></span>OR GUEST<span class="h-px bg-slate-700 flex-1"></span></div>
+    <button id="anonymous" class="w-full p-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded font-bold">Continue anonymously</button>
+  </div>
+</div>
+
+<div id="callsignModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur flex items-center justify-center p-4 z-[60]">
+  <div class="w-full max-w-sm bg-slate-900 border border-emerald-700/50 rounded-2xl p-5 space-y-4 shadow-2xl">
+    <div>
+      <div class="text-[10px] text-emerald-500 font-bold tracking-widest uppercase">Identity Setup</div>
+      <h2 class="text-xl font-bold mt-1">Choose your callsign</h2>
+      <p class="text-xs text-slate-400 mt-1">You will not appear in a channel until you continue.</p>
+    </div>
+    <form id="callsignForm" class="space-y-3">
+      <input id="preJoinCallsign" type="text" maxlength="24" required autocomplete="nickname" placeholder="e.g. Strike-1" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500">
+      <button class="w-full p-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 rounded-lg font-bold">Save Callsign & Join CH-1</button>
+    </form>
+    <button id="callsignSignout" class="w-full text-xs text-slate-500 hover:text-slate-300">Sign out</button>
   </div>
 </div>
 
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult,signOut} from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult,signInAnonymously,signOut} from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
 import {getFirestore,doc,getDoc,setDoc,deleteDoc,collection,onSnapshot,serverTimestamp} from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
 const firebaseConfig={apiKey:'AIzaSyD_N9nYpXbh-TYrLEqhcoEmgWnNBDyvNxs',authDomain:'wtalk-222b2.firebaseapp.com',projectId:'wtalk-222b2',storageBucket:'wtalk-222b2.firebasestorage.app',messagingSenderId:'566131595670',appId:'1:566131595670:web:4b9143db08a23ba7b265b7'};
 const APP='wtalk-222b2', FREQ=['462.5625 MHz','462.5875 MHz','462.6125 MHz','462.6375 MHz','462.6625 MHz','462.6875 MHz','462.7125 MHz','467.5625 MHz'];
 const app=initializeApp(firebaseConfig), auth=getAuth(app), db=getFirestore(app);
-const $=id=>document.getElementById(id), S={uid:null,name:'',admin:false,ch:1,stream:null,tx:false,users:{},pcs:new Map(),pendingIce:new Map(),unsubP:null,unsubS:null,heartbeat:null,ice:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]}};
+const $=id=>document.getElementById(id), S={uid:null,name:'',admin:false,callsignConfirmed:false,ch:1,stream:null,tx:false,users:{},pcs:new Map(),pendingIce:new Map(),unsubP:null,unsubS:null,heartbeat:null,ice:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]}};
 
 function err(e){$('authError').textContent=e?.message||String(e);$('authError').classList.remove('hidden')}
 function path(kind,ch=S.ch){return collection(db,'artifacts',APP,'public','data',`${kind}_ch${ch}`)}
@@ -72,7 +89,7 @@ async function loadIce(){
   try{const r=await fetch(url,{credentials:'omit'});if(!r.ok)throw Error(`TURN HTTP ${r.status}`);const x=await r.json();S.ice={iceServers:[{urls:'stun:stun.l.google.com:19302'},...x]}}catch(e){console.warn(e)}
 }
 async function isAdmin(uid){try{return (await getDoc(doc(db,'admins',uid))).exists()}catch{return false}}
-async function publish(){if(!S.uid)return;await setDoc(myPresence(),{id:S.uid,name:S.name,isAdmin:S.admin,isTransmitting:S.tx,updatedAt:Date.now(),updatedAtServer:serverTimestamp()},{merge:true}).catch(console.warn)}
+async function publish(){if(!S.uid||!S.callsignConfirmed)return;await setDoc(myPresence(),{id:S.uid,name:S.name,isAdmin:S.admin,isTransmitting:S.tx,updatedAt:Date.now(),updatedAtServer:serverTimestamp()},{merge:true}).catch(console.warn)}
 async function removePresence(ch=S.ch){if(S.uid)await deleteDoc(myPresence(ch)).catch(()=>{})}
 
 async function enableMic(){
@@ -107,6 +124,7 @@ function render(){
   const tx=users.find(u=>u.isTransmitting&&u.id!==S.uid);$('talker').textContent=S.tx?'TRANSMITTING':tx?`${tx.name} TRANSMITTING`:'READY';
 }
 async function listen(){
+  if(!S.uid||!S.callsignConfirmed)return;
   S.unsubP?.();S.unsubS?.();S.unsubP=onSnapshot(path('presence'),snap=>{S.users={};snap.forEach(x=>S.users[x.id]=x.data());render()});
   S.unsubS=onSnapshot(path('signals'),snap=>snap.docChanges().forEach(c=>{if(c.type==='added'&&c.doc.data().to===S.uid)handleSignal(c.doc.data(),c.doc.id).catch(console.warn)}));
   clearInterval(S.heartbeat);S.heartbeat=setInterval(publish,5000);await publish()
@@ -117,12 +135,33 @@ function startTx(){if(!S.stream||S.tx)return;S.tx=true;S.stream.getAudioTracks()
 function stopTx(){if(!S.tx)return;S.tx=false;S.stream?.getAudioTracks().forEach(t=>t.enabled=false);$('ptt').classList.remove('tx');publish()}
 
 $('emailForm').onsubmit=async e=>{e.preventDefault();$('authError').classList.add('hidden');try{await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value)}catch(x){err(x)}};
+$('anonymous').onclick=async()=>{try{await signInAnonymously(auth)}catch(x){err(x)}};
 $('google').onclick=async()=>{const p=new GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});try{await signInWithPopup(auth,p)}catch(e){if(['auth/popup-blocked','auth/cancelled-popup-request','auth/operation-not-supported-in-this-environment'].includes(e.code))await signInWithRedirect(auth,p);else err(e)}};
 $('logout').onclick=async()=>{await removePresence();await signOut(auth)};$('mic').onclick=enableMic;
 for(const ev of ['pointerdown'])$('ptt').addEventListener(ev,e=>{e.preventDefault();startTx()});for(const ev of ['pointerup','pointercancel','pointerleave'])$('ptt').addEventListener(ev,e=>{e.preventDefault();stopTx()});
 addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){e.preventDefault();startTx()}});addEventListener('keyup',e=>{if(e.code==='Space'){e.preventDefault();stopTx()}});addEventListener('pagehide',()=>removePresence());document.addEventListener('visibilitychange',()=>{if(document.hidden)stopTx();else publish()});
 
-onAuthStateChanged(auth,async u=>{if(!u){S.uid=null;$('authModal').classList.remove('hidden');$('logout').classList.add('hidden');$('fb').textContent='SIGNED OUT';return}S.uid=u.uid;S.name=u.displayName||u.email?.split('@')[0]||'Operator';S.admin=await isAdmin(u.uid);$('who').textContent=S.name;$('role').textContent=S.admin?'ADMIN':'OPERATOR';$('role').className=S.admin?'h-fit px-2 py-1 text-[10px] border border-red-700 text-red-300 rounded':'h-fit px-2 py-1 text-[10px] border border-slate-700 rounded';$('authModal').classList.add('hidden');$('logout').classList.remove('hidden');$('fb').textContent='ONLINE';$('fb').className='text-emerald-400';await listen()});
+$('callsignForm').onsubmit=async e=>{e.preventDefault();const name=$('preJoinCallsign').value.trim().replace(/\s+/g,' ');if(!name)return;S.name=name;S.callsignConfirmed=true;localStorage.setItem(`wtalkCallsign:${S.uid}`,name);$('who').textContent=name;$('callsignModal').classList.add('hidden');$('notice').textContent='Callsign set. Enable the microphone when ready.';await listen()};
+$('callsignSignout').onclick=async()=>{S.callsignConfirmed=false;$('callsignModal').classList.add('hidden');await signOut(auth)};
+
+onAuthStateChanged(auth,async u=>{
+  if(!u){
+    S.uid=null;S.callsignConfirmed=false;S.name='';
+    S.unsubP?.();S.unsubS?.();clearInterval(S.heartbeat);
+    for(const id of [...S.pcs.keys()])closePeer(id);
+    $('callsignModal').classList.add('hidden');$('authModal').classList.remove('hidden');$('logout').classList.add('hidden');$('fb').textContent='SIGNED OUT';
+    return;
+  }
+  S.uid=u.uid;S.admin=await isAdmin(u.uid);S.callsignConfirmed=false;
+  $('role').textContent=S.admin?'ADMIN':'OPERATOR';
+  $('role').className=S.admin?'h-fit px-2 py-1 text-[10px] border border-red-700 text-red-300 rounded':'h-fit px-2 py-1 text-[10px] border border-slate-700 rounded';
+  $('authModal').classList.add('hidden');$('logout').classList.remove('hidden');$('fb').textContent='ONLINE';$('fb').className='text-emerald-400';
+  const saved=localStorage.getItem(`wtalkCallsign:${u.uid}`)||u.displayName||'';
+  $('preJoinCallsign').value=saved;
+  $('who').textContent='Awaiting callsign';
+  $('callsignModal').classList.remove('hidden');
+  setTimeout(()=>$('preJoinCallsign').focus(),50);
+});
 await getRedirectResult(auth).catch(err);await loadIce();drawChannels();lucide.createIcons();
 </script>
 </body></html>
