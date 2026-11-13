@@ -33,7 +33,7 @@
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-2">
           <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-          <span class="tracking-widest text-emerald-400 uppercase font-bold text-[11px]">WTALK WebRTC v1.3</span>
+          <span class="tracking-widest text-emerald-400 uppercase font-bold text-[11px]">WTALK WebRTC v1.4</span>
         </div>
         <button id="toggleDiagBtn" class="text-[10px] text-slate-400 hover:text-emerald-400 border border-slate-700 hover:border-emerald-500/50 px-2 py-0.5 rounded transition flex items-center space-x-1">
           <i data-lucide="activity" class="w-3 h-3"></i>
@@ -124,8 +124,13 @@
 
     <div class="flex-1 px-3 overflow-hidden flex flex-col mb-2">
       <div class="flex justify-between items-center mb-1">
-        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Channel Roster</span>
-        <span id="userCount" class="text-[10px] font-mono text-emerald-500">1 Online</span>
+        <div class="flex items-center space-x-2">
+          <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Channel Roster</span>
+          <button id="purgeGhostsBtn" class="hidden text-[9px] bg-red-950/80 hover:bg-red-800 text-red-300 border border-red-700/50 px-1.5 py-0.2 rounded font-bold transition">
+            Purge Ghosts
+          </button>
+        </div>
+        <span id="userCount" class="text-[10px] font-mono text-emerald-500">0 Online</span>
       </div>
       <div id="userRoster" class="flex-1 overflow-y-auto space-y-1 pr-1 bg-slate-950/60 rounded-lg p-2 border border-slate-800"></div>
     </div>
@@ -206,10 +211,12 @@
   </div>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getAuth, signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, doc, setDoc, collection, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     lucide.createIcons();
+
+    const ADMIN_UID = "MyugDemk2AENG6TEtEcZitSFUkx1";
 
     const firebaseConfig = {
       apiKey: "AIzaSyD_N9nYpXbh-TYrLEqhcoEmgWnNBDyvNxs",
@@ -223,14 +230,13 @@
     };
 
     const savedName = localStorage.getItem('wtalk_callsign');
-    const savedIsAdmin = localStorage.getItem('wtalk_is_admin') === 'true';
 
     const state = {
       appId: typeof __app_id !== 'undefined' ? __app_id : 'wtalk-222b2',
       currentChannel: 1,
-      userName: savedName || 'Operator',
+      userName: savedName || '',
       userId: null,
-      isAdmin: savedIsAdmin,
+      isAdmin: false,
       isAdminMode: false,
       isTransmitting: false,
       isMicVerified: false,
@@ -267,6 +273,7 @@
       webrtcStatusText: document.getElementById('webrtcStatusText'),
       lcdChannelNum: document.getElementById('lcdChannelNum'),
       adminBadge: document.getElementById('adminBadge'),
+      purgeGhostsBtn: document.getElementById('purgeGhostsBtn'),
       currentUserDisplay: document.getElementById('currentUserDisplay'),
       userRoleBadge: document.getElementById('userRoleBadge'),
       switchAuthModalBtn: document.getElementById('switchAuthModalBtn'),
@@ -333,7 +340,6 @@
       }
     }
 
-    // SUBTLE PTT & ROGER BEEP GENERATOR
     function playAudioFx(type = 'start') {
       try {
         if (!state.audioContext) {
@@ -345,7 +351,6 @@
         const now = ctx.currentTime;
 
         if (type === 'start') {
-          // Subtle soft low-to-mid chirp when keying mic
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.type = 'sine';
@@ -358,7 +363,6 @@
           osc.start(now);
           osc.stop(now + 0.035);
         } else if (type === 'stop') {
-          // Very soft click when releasing local PTT
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.type = 'sine';
@@ -371,7 +375,6 @@
           osc.start(now);
           osc.stop(now + 0.04);
         } else if (type === 'roger') {
-          // Clean, light walkie-talkie Roger Beep when remote user finishes talking
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.type = 'sine';
@@ -425,7 +428,7 @@
         state.analyserNode.fftSize = 64;
         source.connect(state.analyserNode);
 
-        // PC FIX: Attach newly acquired microphone track to any existing peer connections
+        // Attach newly acquired microphone track to any existing peer connections
         Object.entries(state.peerConnections).forEach(([peerId, pc]) => {
           const senders = pc.getSenders();
           const hasAudio = senders.some(s => s.track && s.track.kind === 'audio');
@@ -480,27 +483,46 @@
         state.db = getFirestore(state.app);
         state.auth = getAuth(state.app);
 
-        onAuthStateChanged(state.auth, (user) => {
+        onAuthStateChanged(state.auth, async (user) => {
           if (user) {
             state.userId = user.uid;
-            state.firebaseStatus = 'CONNECTED';
-            updateStatusUI();
-            logDiag(`Authenticated UID: ${user.uid.substring(0, 8)}`);
+            state.isAdmin = (user.uid === ADMIN_UID);
 
-            // If user already has a saved callsign in localStorage, skip modal and join
-            if (localStorage.getItem('wtalk_callsign')) {
-              updateRoleDisplay();
-              elements.authModal.classList.add('hidden');
+            if (state.isAdmin) {
+              state.userName = "Bryan Wedekind";
+              localStorage.setItem('wtalk_callsign', state.userName);
+            } else {
+              const cached = localStorage.getItem('wtalk_callsign');
+              if (cached && cached !== "Bryan Wedekind") {
+                state.userName = cached;
+              }
             }
 
-            setupBannedListener();
-            setupChannelPresenceAndSignaling();
+            state.firebaseStatus = 'CONNECTED';
+            updateStatusUI();
+            updateRoleDisplay();
+            logDiag(`Connected UID: ${user.uid.substring(0, 8)} as ${state.userName || 'Unset'}`);
+
+            if (state.userName) {
+              elements.authModal.classList.add('hidden');
+              setupBannedListener();
+              setupChannelPresenceAndSignaling();
+            } else {
+              elements.authModal.classList.remove('hidden');
+            }
           } else {
             state.firebaseStatus = 'DISCONNECTED';
             updateStatusUI();
-            // Auto sign-in anonymously if we have a saved operator callsign
-            if (savedName && !savedIsAdmin) {
-              signInAnonymously(state.auth).catch(()=>{});
+
+            const cached = localStorage.getItem('wtalk_callsign');
+            if (cached && cached !== 'Bryan Wedekind') {
+              state.userName = cached;
+              await signInAnonymously(state.auth).catch(e => {
+                logDiag(`Auto-auth error: ${e.message}`, 'error');
+                elements.authModal.classList.remove('hidden');
+              });
+            } else {
+              elements.authModal.classList.remove('hidden');
             }
           }
         });
@@ -515,16 +537,27 @@
       hideAuthError();
       try {
         preWarmAudioElements();
+        // Clean up old presence doc if switching from another account
+        if (state.db && state.userId) {
+          await deleteDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${state.currentChannel}`, state.userId)).catch(()=>{});
+        }
+        // If currently logged in as Admin, sign out first so we don't overwrite Admin UID!
+        if (state.auth.currentUser && state.auth.currentUser.uid === ADMIN_UID) {
+          await signOut(state.auth);
+        }
+
         state.userName = callsign;
         state.isAdmin = false;
         localStorage.setItem('wtalk_callsign', callsign);
-        localStorage.setItem('wtalk_is_admin', 'false');
         updateRoleDisplay();
+
         if (!state.auth.currentUser) {
           await signInAnonymously(state.auth);
+        } else {
+          elements.authModal.classList.add('hidden');
+          setupBannedListener();
+          setupChannelPresenceAndSignaling();
         }
-        elements.authModal.classList.add('hidden');
-        publishPresence();
       } catch (err) {
         showAuthError(`Auth failed: ${err.message}`);
       }
@@ -534,11 +567,14 @@
       hideAuthError();
       try {
         preWarmAudioElements();
+        // Delete anonymous presence doc before switching to Admin
+        if (state.db && state.userId && state.userId !== ADMIN_UID) {
+          await deleteDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${state.currentChannel}`, state.userId)).catch(()=>{});
+        }
         await signInWithEmailAndPassword(state.auth, email, password);
         state.userName = "Bryan Wedekind";
         state.isAdmin = true;
         localStorage.setItem('wtalk_callsign', state.userName);
-        localStorage.setItem('wtalk_is_admin', 'true');
         updateRoleDisplay();
         elements.authModal.classList.add('hidden');
         publishPresence();
@@ -548,13 +584,15 @@
     }
 
     function updateRoleDisplay() {
-      elements.currentUserDisplay.textContent = state.userName;
+      elements.currentUserDisplay.textContent = state.userName || 'Operator';
       if (state.isAdmin) {
         elements.adminBadge.classList.remove('hidden');
+        elements.purgeGhostsBtn.classList.remove('hidden');
         elements.userRoleBadge.textContent = 'SUPER ADMIN';
         elements.userRoleBadge.className = "px-1.5 py-0.5 text-[9px] font-bold rounded bg-red-900/80 text-red-300 border border-red-700/80 uppercase";
       } else {
         elements.adminBadge.classList.add('hidden');
+        elements.purgeGhostsBtn.classList.add('hidden');
         elements.userRoleBadge.textContent = 'OPERATOR';
         elements.userRoleBadge.className = "px-1.5 py-0.5 text-[9px] font-bold rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase";
       }
@@ -577,7 +615,7 @@
       state.unsubscribeBans = onSnapshot(banRef, (snapshot) => {
         let isCurrentBanned = false;
         snapshot.forEach(doc => {
-          if (doc.id === state.userId || doc.data().name?.toLowerCase() === state.userName.toLowerCase()) {
+          if (doc.id === state.userId || (state.userName && doc.data().name?.toLowerCase() === state.userName.toLowerCase())) {
             isCurrentBanned = true;
           }
         });
@@ -596,7 +634,7 @@
     }
 
     function setupChannelPresenceAndSignaling() {
-      if (!state.db || !state.userId || state.isBanned) return;
+      if (!state.db || !state.userId || !state.userName || state.isBanned) return;
       if (state.unsubscribePresence) state.unsubscribePresence();
       if (state.unsubscribeSignals) state.unsubscribeSignals();
 
@@ -605,22 +643,33 @@
       const presenceRef = collection(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${ch}`);
       state.unsubscribePresence = onSnapshot(presenceRef, (snapshot) => {
         const newUsers = {};
+        const now = Date.now();
 
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          if (!data || !data.name) return;
+
+          // 5-Minute Stale Filter (300,000ms): Wide enough to ignore PC/Phone clock drift,
+          // but hides dead test sessions from earlier in the day.
+          const isRecent = !data.updatedAt || Math.abs(now - data.updatedAt) < 300000;
+          if (!isRecent && docSnap.id !== state.userId) {
+            return;
+          }
+
           // ROGER BEEP CHECK: Detect when a remote user finishes transmitting
-          const prevUser = state.channelUsers[doc.id];
-          if (doc.id !== state.userId && prevUser && prevUser.isTransmitting && !data.isTransmitting) {
+          const prevUser = state.channelUsers[docSnap.id];
+          if (docSnap.id !== state.userId && prevUser && prevUser.isTransmitting && !data.isTransmitting) {
             playAudioFx('roger');
           }
 
-          newUsers[doc.id] = data;
+          newUsers[docSnap.id] = data;
         });
 
         state.channelUsers = newUsers;
         updateRosterUI();
         manageWebRTCPeerConnections();
+      }, (err) => {
+        logDiag(`Roster sync error: ${err.message}`, 'error');
       });
 
       publishPresence();
@@ -642,7 +691,7 @@
     }
 
     function publishPresence() {
-      if (!state.db || !state.userId || state.isBanned) return;
+      if (!state.db || !state.userId || !state.userName || state.isBanned) return;
       const myDoc = doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${state.currentChannel}`, state.userId);
       setDoc(myDoc, {
         id: state.userId,
@@ -652,7 +701,9 @@
         updatedAt: Date.now() 
       }, { merge: true }).then(() => {
         state.isPresenceEstablished = true;
-      }).catch(()=>{});
+      }).catch((err) => {
+        logDiag(`Presence write error: ${err.message}`, 'error');
+      });
     }
 
     function manageWebRTCPeerConnections() {
@@ -831,7 +882,14 @@
     }
 
     function updateRosterUI() {
-      const usersList = Object.values(state.channelUsers);
+      // Locked sort order so users never jump around on heartbeat updates
+      const usersList = Object.values(state.channelUsers).sort((a, b) => {
+        if (a.id === state.userId) return -1;
+        if (b.id === state.userId) return 1;
+        if (a.isAdmin !== b.isAdmin) return a.isAdmin ? -1 : 1;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+
       elements.userCount.textContent = `${usersList.length} Online`;
       elements.userRoster.innerHTML = '';
 
@@ -842,7 +900,7 @@
 
       usersList.forEach(u => {
         const isSelf = u.id === state.userId;
-        const isBryanAdmin = (u.isAdmin || u.name?.trim().toLowerCase() === 'bryan wedekind');
+        const isBryanAdmin = (u.isAdmin || u.id === ADMIN_UID);
 
         const item = document.createElement('div');
         item.className = `flex items-center justify-between p-2 rounded text-xs border ${
@@ -878,6 +936,16 @@
     function adminKickUser(targetId) {
       if (!state.isAdmin || !state.db) return;
       deleteDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${state.currentChannel}`, targetId)).catch(()=>{});
+    }
+
+    function adminPurgeGhosts() {
+      if (!state.isAdmin || !state.db) return;
+      Object.keys(state.channelUsers).forEach(uid => {
+        if (uid !== state.userId) {
+          deleteDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${state.currentChannel}`, uid)).catch(()=>{});
+        }
+      });
+      logDiag("Purged ghost users from channel.");
     }
 
     function adminBanUser(targetId, targetName) {
@@ -923,6 +991,7 @@
       });
 
       elements.requestMicBtn.addEventListener('click', requestMicrophone);
+      elements.purgeGhostsBtn.addEventListener('click', adminPurgeGhosts);
 
       elements.toggleAuthModeBtn.addEventListener('click', () => {
         state.isAdminMode = !state.isAdminMode;
@@ -959,8 +1028,10 @@
       });
 
       elements.switchAuthModalBtn.addEventListener('click', () => {
-        if (state.userName && state.userName !== 'Operator') {
+        if (state.userName && state.userName !== 'Bryan Wedekind') {
           elements.callsignInput.value = state.userName;
+        } else {
+          elements.callsignInput.value = '';
         }
         elements.authModal.classList.remove('hidden');
       });
@@ -973,9 +1044,8 @@
       setupEventListeners();
       updateRoleDisplay();
 
-      if (savedName) {
+      if (savedName && savedName !== 'Bryan Wedekind') {
         elements.callsignInput.value = savedName;
-        elements.authModal.classList.add('hidden');
       }
 
       await requestMicrophone();
