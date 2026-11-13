@@ -660,26 +660,33 @@
       };
 
       // AUDIO ROUTING FIX
+     // AUDIO ROUTING FIX: Bypass mobile HTML autoplay blocks
       pc.ontrack = (event) => {
         const stream = event.streams[0];
-        let audioElement = document.getElementById('audio-' + stream.id);
         
+        // Route directly through the awake AudioContext (guarantees speaker output)
+        if (state.audioContext) {
+          try {
+            const remoteSource = state.audioContext.createMediaStreamSource(stream);
+            remoteSource.connect(state.audioContext.destination);
+            logDiag("Remote audio routed to speakers.", 'warn');
+          } catch (e) {
+            logDiag(`AudioContext routing failed: ${e.message}`);
+          }
+        }
+
+        // Keep the hidden audio element alive for browser garbage-collection reasons
+        let audioElement = document.getElementById('audio-' + stream.id);
         if (!audioElement) {
             audioElement = document.createElement('audio');
             audioElement.id = 'audio-' + stream.id;
             audioElement.autoplay = true;
             audioElement.playsInline = true;
-            audioElement.volume = 1.0; // Force full volume mapping
             elements.remoteAudioContainer.appendChild(audioElement);
         }
         
         audioElement.srcObject = stream;
-        
-        event.track.onunmute = () => {
-          audioElement.play().catch(e => logDiag(`Autoplay block: ${e.message}`, 'warn'));
-        };
-
-        audioElement.play().catch(e => logDiag(`Autoplay block: ${e.message}`, 'warn'));
+        audioElement.play().catch(()=>{});
       };
 
       state.peerConnections[peerId] = pc;
