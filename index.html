@@ -231,6 +231,7 @@
       audioStream: null,
       audioContext: null,
       analyserNode: null,
+      micGainNode: null,
       
       app: null, // Add app to state for easier access
       db: null,
@@ -389,17 +390,24 @@
         });
         state.isMicVerified = true;
         
-        // Ensure initial state is muted for WebRTC
-        state.audioStream.getAudioTracks().forEach(track => track.enabled = false);
-
+        // CRITICAL FIX: Do NOT set track.enabled = false here. 
+        // WebRTC needs an active track to negotiate the connection.
+        
         state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         
-        // Connect the microphone stream to the visualizer
-        const source = state.audioContext.createMediaStreamSource(state.audioStream);
+        // Clone the stream to isolate the visualizer from WebRTC
+        const clonedStream = state.audioStream.clone();
+        const source = state.audioContext.createMediaStreamSource(clonedStream);
+        
+        // Create a volume controller (GainNode) to act as our local mute switch
+        state.micGainNode = state.audioContext.createGain();
+        state.micGainNode.gain.value = 0; // Start muted locally
         
         state.analyserNode = state.audioContext.createAnalyser();
         state.analyserNode.fftSize = 64;
-        source.connect(state.analyserNode);
+        
+        source.connect(state.micGainNode);
+        state.micGainNode.connect(state.analyserNode);
 
         elements.micBanner.classList.add('hidden');
         logDiag("Microphone active.");
@@ -732,7 +740,8 @@
       state.isTransmitting = true;
       playAudioFx('start');
 
-      if (state.audioStream) state.audioStream.getAudioTracks().forEach(track => track.enabled = true);
+      // CRITICAL FIX: Turn up the mic volume instead of toggling track
+      if (state.micGainNode) state.micGainNode.gain.value = 1;
 
       elements.pttBtn.classList.add('ptt-active', 'scale-95');
       elements.visualizerOverlayText.textContent = "TRANSMITTING...";
@@ -747,7 +756,8 @@
       state.isTransmitting = false;
       playAudioFx('stop');
 
-      if (state.audioStream) state.audioStream.getAudioTracks().forEach(track => track.enabled = false);
+      // CRITICAL FIX: Mute the mic volume instead of killing track
+      if (state.micGainNode) state.micGainNode.gain.value = 0;
 
       elements.pttBtn.classList.remove('ptt-active', 'scale-95');
       elements.visualizerOverlayText.textContent = "READY / RECEIVING";
