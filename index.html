@@ -17,7 +17,7 @@
 <body class="h-full bg-slate-950 p-2 flex items-center justify-center overflow-hidden">
 <main class="w-full max-w-md h-[96vh] max-h-[900px] bg-slate-900 border-2 border-slate-700 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
   <header class="p-3 border-b border-slate-800">
-    <div class="flex justify-between items-center"><b class="text-emerald-400 tracking-widest text-xs">WTALK WebRTC v1.25L LOBBY</b><button id="logout" class="hidden text-xs text-slate-400 hover:text-white">Sign out</button></div>
+    <div class="flex justify-between items-center"><b class="text-emerald-400 tracking-widest text-xs">WTALK WebRTC v1.25M LOBBY</b><button id="logout" class="hidden text-xs text-slate-400 hover:text-white">Sign Out</button></div>
     <div class="grid grid-cols-2 gap-2 mt-2 text-[10px] mono">
       <div class="bg-slate-950 border border-slate-800 rounded p-2">FIREBASE: <span id="fb" class="text-amber-400">INIT</span></div>
       <div class="bg-slate-950 border border-slate-800 rounded p-2">WEBRTC: <span id="rtc" class="text-slate-400">STANDBY</span></div>
@@ -72,7 +72,7 @@
       <input id="preJoinCallsign" type="text" maxlength="24" required autocomplete="nickname" placeholder="e.g. Strike-1" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500">
       <button class="w-full p-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 rounded-lg font-bold">Save Callsign & Join CH-1</button>
     </form>
-    <button id="callsignSignout" class="w-full text-xs text-slate-500 hover:text-slate-300">Sign out</button>
+    <button id="callsignSignout" class="w-full text-xs text-slate-500 hover:text-slate-300">Sign Out</button>
   </div>
 </div>
 
@@ -137,6 +137,11 @@ function render(){
   const active=new Set(users.map(u=>u.id));for(const id of S.pcs.keys())if(!active.has(id))closePeer(id);for(const id of active)if(id!==S.uid&&!S.pcs.has(id)&&S.uid<id)makeOffer(id).catch(console.warn);
   const tx=users.find(u=>u.isTransmitting&&u.id!==S.uid);$('talker').textContent=S.tx?'TRANSMITTING':tx?`${tx.name} TRANSMITTING`:'READY';
 }
+async function banCallsign(name){
+  if(!S.admin||!name)return;
+  const normalized=name.trim().toLowerCase();
+  await setDoc(doc(db,'artifacts',APP,'public','data','walkie_banned_names',encodeURIComponent(normalized)),{name:normalized,timestamp:Date.now()});
+}
 function openDisconnected(message='You were removed from the channel.'){
   stopTx();S.unsubP?.();S.unsubS?.();S.unsubK?.();clearInterval(S.heartbeat);
   for(const id of [...S.pcs.keys()])closePeer(id);
@@ -150,7 +155,8 @@ async function setupKickListener(){
     if(snap.exists()){
       deleteDoc(snap.ref).catch(()=>{});
       removePresence().catch(()=>{});
-      openDisconnected('An administrator disconnected you from the channel.');
+      stopTx();S.unsubP?.();S.unsubS?.();clearInterval(S.heartbeat);for(const id of [...S.pcs.keys()])closePeer(id);S.callsignConfirmed=false;
+      $('disconnectMessage').textContent='An administrator disconnected you from the channel.';$('disconnectModal').classList.remove('hidden');
     }
   },e=>console.warn('Kick listener',e));
 }
@@ -168,13 +174,32 @@ function stopTx(){if(!S.tx)return;S.tx=false;S.stream?.getAudioTracks().forEach(
 $('emailForm').onsubmit=async e=>{e.preventDefault();$('authError').classList.add('hidden');try{await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value)}catch(x){err(x)}};
 $('anonymous').onclick=async()=>{try{await signInAnonymously(auth)}catch(x){err(x)}};
 $('google').onclick=async()=>{const p=new GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});try{await signInWithPopup(auth,p)}catch(e){if(['auth/popup-blocked','auth/cancelled-popup-request','auth/operation-not-supported-in-this-environment'].includes(e.code))await signInWithRedirect(auth,p);else err(e)}};
-$('logout').onclick=async()=>{await removePresence();await signOut(auth)};$('mic').onclick=enableMic;
+$('logout').onclick=async()=>{await returnToMainMenu('Signed out. Select a login method and callsign to rejoin.')} ;$('mic').onclick=enableMic;
 $('ptt').addEventListener('contextmenu',e=>e.preventDefault());$('ptt').addEventListener('selectstart',e=>e.preventDefault());$('ptt').addEventListener('pointerdown',e=>{e.preventDefault();try{$('ptt').setPointerCapture(e.pointerId)}catch{}startTx()},{passive:false});for(const ev of ['pointerup','pointercancel','lostpointercapture'])$('ptt').addEventListener(ev,e=>{e.preventDefault();stopTx()},{passive:false});
 addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){e.preventDefault();startTx()}});addEventListener('keyup',e=>{if(e.code==='Space'){e.preventDefault();stopTx()}});addEventListener('pagehide',()=>removePresence());document.addEventListener('visibilitychange',()=>{if(document.hidden)stopTx();else publish()});
 
-$('returnLobbyBtn').onclick=async()=>{S.ch=1;$('chLabel').textContent='LOBBY';$('freq').textContent=FREQ[0];drawChannels();$('disconnectModal').classList.add('hidden');$('preJoinCallsign').value='';$('callsignModal').classList.remove('hidden');setTimeout(()=>$('preJoinCallsign').focus(),50)};
-$('callsignForm').onsubmit=async e=>{e.preventDefault();const name=$('preJoinCallsign').value.trim().replace(/\s+/g,' ');if(!name)return;S.name=name;S.callsignConfirmed=true;localStorage.setItem(`wtalkCallsign:${S.uid}`,name);$('who').textContent=name;$('callsignModal').classList.add('hidden');$('notice').textContent='Callsign set. Enable the microphone when ready.';await listen()};
-$('callsignSignout').onclick=async()=>{S.callsignConfirmed=false;$('callsignModal').classList.add('hidden');await signOut(auth)};
+$('returnLobbyBtn').textContent='Return to Main Menu';$('returnLobbyBtn').onclick=async()=>{S.ch=1;$('chLabel').textContent='LOBBY';$('freq').textContent=FREQ[0];drawChannels();await returnToMainMenu('Disconnected from channel. Select a login method and callsign to rejoin.')};
+async function callsignIsBanned(name){
+  const normalized=name.trim().toLowerCase();
+  try{
+    const snap=await new Promise((resolve,reject)=>{let off;off=onSnapshot(collection(db,'artifacts',APP,'public','data','walkie_banned_names'),x=>{off?.();resolve(x)},reject)});
+    return snap.docs.some(d=>d.id===encodeURIComponent(normalized)||d.data()?.name?.toLowerCase()===normalized);
+  }catch(e){console.warn('Ban-name check failed',e);return false}
+}
+async function returnToMainMenu(message='Signed out. Choose how you want to join WTALK.'){
+  stopTx();
+  try{await removePresence()}catch{}
+  S.unsubP?.();S.unsubS?.();clearInterval(S.heartbeat);
+  for(const id of [...S.pcs.keys()])closePeer(id);
+  S.callsignConfirmed=false;S.name='';
+  $('disconnectModal').classList.add('hidden');$('callsignModal').classList.add('hidden');
+  await signOut(auth).catch(()=>{});
+  $('authError').classList.add('hidden');
+  $('notice').textContent=message;
+  $('authModal').classList.remove('hidden');
+}
+$('callsignForm').onsubmit=async e=>{e.preventDefault();const name=$('preJoinCallsign').value.trim().replace(/\s+/g,' ');if(!name)return;if(await callsignIsBanned(name)){$('notice').textContent=`Callsign \"${name}\" is banned and cannot join.`;$('preJoinCallsign').select();return}S.name=name;S.callsignConfirmed=true;localStorage.setItem(`wtalkCallsign:${S.uid}`,name);$('who').textContent=name;$('callsignModal').classList.add('hidden');$('notice').textContent='Callsign set. Welcome to the Lobby.';await listen()};
+$('callsignSignout').onclick=async()=>{await returnToMainMenu('Signed out. Select a login method and callsign to rejoin.')} ;
 
 onAuthStateChanged(auth,async u=>{
   if(!u){
