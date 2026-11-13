@@ -33,7 +33,7 @@
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-2">
           <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-          <span class="tracking-widest text-emerald-400 uppercase font-bold text-[11px]">TWALK WebRTC v1.1</span>
+          <span class="tracking-widest text-emerald-400 uppercase font-bold text-[11px]">TWALK WebRTC v1.2</span>
         </div>
         <button id="toggleDiagBtn" class="text-[10px] text-slate-400 hover:text-emerald-400 border border-slate-700 hover:border-emerald-500/50 px-2 py-0.5 rounded transition flex items-center space-x-1">
           <i data-lucide="activity" class="w-3 h-3"></i>
@@ -141,7 +141,17 @@
       </button>
     </div>
 
-    <div id="remoteAudioContainer" style="position: absolute; top: -9999px; left: -9999px; width: 1px; height: 1px; overflow: hidden;"></div>
+    <!-- PRE-WARMED AUDIO POOL FOR MOBILE SAFARI/CHROME -->
+    <div id="remoteAudioContainer" style="position: absolute; top: -9999px; left: -9999px; width: 1px; height: 1px; overflow: hidden;">
+      <audio id="audio-slot-0" autoplay playsinline></audio>
+      <audio id="audio-slot-1" autoplay playsinline></audio>
+      <audio id="audio-slot-2" autoplay playsinline></audio>
+      <audio id="audio-slot-3" autoplay playsinline></audio>
+      <audio id="audio-slot-4" autoplay playsinline></audio>
+      <audio id="audio-slot-5" autoplay playsinline></audio>
+      <audio id="audio-slot-6" autoplay playsinline></audio>
+      <audio id="audio-slot-7" autoplay playsinline></audio>
+    </div>
   </div>
 
   <div id="authModal" class="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50">
@@ -195,7 +205,6 @@
       </div>
     </div>
   </div>
-
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -230,7 +239,7 @@
       audioStream: null,
       audioContext: null,
       analyserNode: null,
-      micGainNode: null,
+      audioSlots: Array(8).fill(null), // Audio slot tracking for mobile bypass
       
       app: null, 
       db: null,
@@ -273,7 +282,6 @@
       userRoster: document.getElementById('userRoster'),
       userCount: document.getElementById('userCount'),
       pttBtn: document.getElementById('pttBtn'),
-      remoteAudioContainer: document.getElementById('remoteAudioContainer'),
       authModal: document.getElementById('authModal'),
       authModalTitle: document.getElementById('authModalTitle'),
       authModeBadge: document.getElementById('authModeBadge'),
@@ -377,7 +385,18 @@
       } catch (e) {}
     }
 
+    // PRE-WARM ALL AUDIO ELEMENTS TO BYPASS MOBILE AUTOPLAY BLOCK
+    function preWarmAudioElements() {
+      for(let i=0; i<8; i++) {
+        const el = document.getElementById('audio-slot-' + i);
+        if(el && el.srcObject === null) {
+           el.play().catch(()=>{}); 
+        }
+      }
+    }
+
     const wakeAudioEngine = () => {
+      preWarmAudioElements();
       if (state.audioContext && state.audioContext.state === 'suspended') {
         state.audioContext.resume();
       }
@@ -385,7 +404,7 @@
     document.addEventListener('click', wakeAudioEngine);
     document.addEventListener('touchstart', wakeAudioEngine);
 
-   async function requestMicrophone() {
+    async function requestMicrophone() {
       try {
         state.audioStream = await navigator.mediaDevices.getUserMedia({ 
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, 
@@ -393,19 +412,18 @@
         });
         state.isMicVerified = true;
         
+        // Mute original stream immediately so WebRTC doesn't transmit until PTT
+        state.audioStream.getAudioTracks().forEach(track => track.enabled = false);
+
         state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         
+        // Clone stream for the local visualizer (clone is unaffected by original track mute)
         const clonedStream = state.audioStream.clone();
         const source = state.audioContext.createMediaStreamSource(clonedStream);
         
-        state.micGainNode = state.audioContext.createGain();
-        state.micGainNode.gain.value = 0; 
-        
         state.analyserNode = state.audioContext.createAnalyser();
         state.analyserNode.fftSize = 64;
-        
-        source.connect(state.micGainNode);
-        state.micGainNode.connect(state.analyserNode);
+        source.connect(state.analyserNode);
 
         elements.micBanner.classList.add('hidden');
         logDiag("Microphone active.");
@@ -442,6 +460,7 @@
       }
       render();
     }
+
     async function initFirebase() {
       state.firebaseStatus = 'CONNECTING';
       updateStatusUI();
@@ -475,6 +494,7 @@
     async function handleAnonymousLogin(callsign) {
       hideAuthError();
       try {
+        preWarmAudioElements();
         state.userName = callsign;
         state.isAdmin = false;
         updateRoleDisplay();
@@ -489,6 +509,7 @@
     async function handleAdminLogin(email, password) {
       hideAuthError();
       try {
+        preWarmAudioElements();
         await signInWithEmailAndPassword(state.auth, email, password);
         state.userName = "Bryan Wedekind";
         state.isAdmin = true;
@@ -559,12 +580,16 @@
       state.unsubscribePresence = onSnapshot(presenceRef, (snapshot) => {
         const newUsers = {};
         let selfExistsInRoster = false;
+        const now = Date.now();
 
         snapshot.forEach(doc => {
           const data = doc.data();
-          
-          newUsers[doc.id] = data;
-          if (doc.id === state.userId) selfExistsInRoster = true;
+          if (Math.abs(now - data.updatedAt) < 60000) {
+            newUsers[doc.id] = data;
+            if (doc.id === state.userId) selfExistsInRoster = true;
+          } else if (state.isAdmin && doc.id !== state.userId) {
+            deleteDoc(doc.ref).catch(()=>{});
+          }
         });
 
         if (!selfExistsInRoster && state.isPresenceEstablished) {
@@ -652,18 +677,17 @@
         updateStatusUI();
       };
 
-      let audioElement = document.getElementById('audio-' + peerId);
-      if (!audioElement) {
-          audioElement = document.createElement('audio');
-          audioElement.id = 'audio-' + peerId;
-          audioElement.autoplay = true;
-          audioElement.playsInline = true;
-          elements.remoteAudioContainer.appendChild(audioElement);
-      }
-
+      // Assign incoming stream to a pre-warmed slot to bypass mobile autoplay blocks
       pc.ontrack = (event) => {
         const stream = event.streams[0];
-        const audioEl = document.getElementById('audio-' + peerId);
+        
+        let slotIndex = state.audioSlots.indexOf(peerId);
+        if (slotIndex === -1) slotIndex = state.audioSlots.indexOf(null);
+        if (slotIndex === -1) slotIndex = 0; 
+        
+        state.audioSlots[slotIndex] = peerId;
+        const audioEl = document.getElementById('audio-slot-' + slotIndex);
+        
         if (audioEl) {
            audioEl.srcObject = stream;
            audioEl.play().catch(e => logDiag(`Autoplay blocked: ${e.message}`, 'warn'));
@@ -707,6 +731,14 @@
         state.peerConnections[peerId].close();
         delete state.peerConnections[peerId];
       }
+      
+      let slotIndex = state.audioSlots.indexOf(peerId);
+      if (slotIndex !== -1) {
+        state.audioSlots[slotIndex] = null;
+        const audioEl = document.getElementById('audio-slot-' + slotIndex);
+        if (audioEl) audioEl.srcObject = null;
+      }
+      
       updateStatusUI();
     }
 
@@ -718,7 +750,10 @@
       state.isTransmitting = true;
       playAudioFx('start');
 
-      if (state.micGainNode) state.micGainNode.gain.value = 1;
+      // Unmute the WebRTC track
+      if (state.audioStream) {
+        state.audioStream.getAudioTracks().forEach(track => track.enabled = true);
+      }
 
       elements.pttBtn.classList.add('ptt-active', 'scale-95');
       elements.visualizerOverlayText.textContent = "TRANSMITTING...";
@@ -733,7 +768,10 @@
       state.isTransmitting = false;
       playAudioFx('stop');
 
-      if (state.micGainNode) state.micGainNode.gain.value = 0;
+      // Mute the WebRTC track
+      if (state.audioStream) {
+        state.audioStream.getAudioTracks().forEach(track => track.enabled = false);
+      }
 
       elements.pttBtn.classList.remove('ptt-active', 'scale-95');
       elements.visualizerOverlayText.textContent = "READY / RECEIVING";
