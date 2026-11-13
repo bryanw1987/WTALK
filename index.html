@@ -17,7 +17,7 @@
 <body class="h-full bg-slate-950 p-2 flex items-center justify-center overflow-hidden">
 <main class="w-full max-w-md h-[96vh] max-h-[900px] bg-slate-900 border-2 border-slate-700 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
   <header class="p-3 border-b border-slate-800">
-    <div class="flex justify-between items-center"><b class="text-emerald-400 tracking-widest text-xs">WTALK WebRTC v1.35C STABLE</b><button id="logout" class="hidden text-xs text-slate-400 hover:text-white">Sign out</button></div>
+    <div class="flex justify-between items-center"><b class="text-emerald-400 tracking-widest text-xs">WTALK WebRTC v1.35</b><button id="logout" class="hidden text-xs text-slate-400 hover:text-white">Sign out</button></div>
     <div class="grid grid-cols-2 gap-2 mt-2 text-[10px] mono">
       <div class="bg-slate-950 border border-slate-800 rounded p-2">FIREBASE: <span id="fb" class="text-amber-400">INIT</span></div>
       <div class="bg-slate-950 border border-slate-800 rounded p-2">WEBRTC: <span id="rtc" class="text-slate-400">STANDBY</span></div>
@@ -46,6 +46,8 @@
       <input id="password" type="password" autocomplete="current-password" required placeholder="Password" class="w-full bg-slate-950 border border-slate-700 rounded p-2">
       <button class="w-full p-2.5 bg-emerald-600 text-slate-950 rounded font-bold">Sign in with email</button>
     </form>
+    <div class="flex items-center gap-2 text-xs text-slate-500"><span class="h-px bg-slate-700 flex-1"></span>OR<span class="h-px bg-slate-700 flex-1"></span></div>
+    <button id="google" class="w-full p-2.5 bg-white text-slate-900 rounded font-bold">Continue with Google</button>
     <div class="flex items-center gap-2 text-xs text-slate-500"><span class="h-px bg-slate-700 flex-1"></span>OR GUEST<span class="h-px bg-slate-700 flex-1"></span></div>
     <button id="anonymous" class="w-full p-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded font-bold">Continue anonymously</button>
   </div>
@@ -74,7 +76,7 @@ import {getFirestore,doc,getDoc,setDoc,deleteDoc,collection,onSnapshot,serverTim
 const firebaseConfig={apiKey:'AIzaSyD_N9nYpXbh-TYrLEqhcoEmgWnNBDyvNxs',authDomain:'wtalk-222b2.firebaseapp.com',projectId:'wtalk-222b2',storageBucket:'wtalk-222b2.firebasestorage.app',messagingSenderId:'566131595670',appId:'1:566131595670:web:4b9143db08a23ba7b265b7'};
 const APP='wtalk-222b2', FREQ=['462.5625 MHz','462.5875 MHz','462.6125 MHz','462.6375 MHz','462.6625 MHz','462.6875 MHz','462.7125 MHz','467.5625 MHz'];
 const app=initializeApp(firebaseConfig), auth=getAuth(app), db=getFirestore(app);
-const $=id=>document.getElementById(id), S={uid:null,name:'',admin:false,callsignConfirmed:false,ch:1,stream:null,tx:false,users:{},pcs:new Map(),pendingIce:new Map(),remoteSources:new Map(),receiveContext:null,unsubP:null,unsubS:null,unsubB:null,heartbeat:null,ice:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]}};
+const $=id=>document.getElementById(id), S={uid:null,name:'',admin:false,callsignConfirmed:false,ch:1,stream:null,tx:false,users:{},pcs:new Map(),pendingIce:new Map(),remoteSources:new Map(),receiveContext:null,unsubP:null,unsubS:null,heartbeat:null,ice:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]}};
 
 function err(e){$('authError').textContent=e?.message||String(e);$('authError').classList.remove('hidden')}
 function path(kind,ch=S.ch){return collection(db,'artifacts',APP,'public','data',`${kind}_ch${ch}`)}
@@ -84,7 +86,7 @@ async function loadIce(){
   const url=window.WTALK_TURN_CREDENTIALS_URL || 'https://wtalk.metered.live/api/v1/turn/credentials?apiKey=4696c8ba71fbe0ccc3c4e8e285fa4b3bba96';
   try{const r=await fetch(url,{credentials:'omit'});if(!r.ok)throw Error(`TURN HTTP ${r.status}`);const x=await r.json();S.ice={iceServers:[{urls:'stun:stun.l.google.com:19302'},...x]};$('notice').textContent='Network relay ready. Sign in and enable the microphone.'}catch(e){console.warn(e);$('notice').textContent='TURN unavailable. Local-network audio may still work.'}
 }
-async function isAdmin(user){if(user.email?.toLowerCase()==='bryan.wedekind@gmail.com')return true;try{const snap=await getDoc(doc(db,'admins',user.uid));return snap.exists()&&snap.data()?.enabled!==false}catch{return false}}
+async function isAdmin(uid){try{const snap=await getDoc(doc(db,'admins',uid));return snap.exists() && snap.data()?.enabled !== false}catch{return false}}
 async function publish(){if(!S.uid||!S.callsignConfirmed)return;await setDoc(myPresence(),{id:S.uid,name:S.name,isAdmin:S.admin,isTransmitting:S.tx,updatedAt:Date.now(),updatedAtServer:serverTimestamp()},{merge:true}).catch(console.warn)}
 async function removePresence(ch=S.ch){if(S.uid)await deleteDoc(myPresence(ch)).catch(()=>{})}
 
@@ -122,20 +124,8 @@ async function handleSignal(sig,id){
 }
 function status(){$('rtc').textContent=S.pcs.size?`${S.pcs.size} PEER${S.pcs.size===1?'':'S'}`:'STANDBY';$('rtc').className=S.pcs.size?'text-emerald-400':'text-slate-400'}
 function render(){
-  const now=Date.now();
-  const users=Object.values(S.users).filter(u=>{const serverMs=u.updatedAtServer?.toMillis?.();return !serverMs || (now-serverMs)<45000;});
-  $('count').textContent=`${users.length} ONLINE`;$('roster').innerHTML='';
-  users.forEach(u=>{
-    const d=document.createElement('div');d.className=`p-2 rounded border text-xs flex items-center justify-between gap-2 ${u.isTransmitting?'border-red-500 bg-red-950/50':'border-slate-800 bg-slate-900'}`;
-    const label=document.createElement('span');label.className='truncate';label.textContent=`${u.name}${u.id===S.uid?' (You)':''}${u.isAdmin?' • ADMIN':''}${u.isTransmitting?' • TX':''}`;d.appendChild(label);
-    if(S.admin&&u.id!==S.uid){
-      const box=document.createElement('span');box.className='flex gap-1';
-      const k=document.createElement('button');k.textContent='Kick';k.className='px-2 py-1 bg-amber-700 rounded';k.onclick=()=>deleteDoc(doc(path('presence'),u.id)).catch(e=>alert(`Kick failed: ${e.message}`));
-      const b=document.createElement('button');b.textContent='Ban';b.className='px-2 py-1 bg-red-700 rounded';b.onclick=async()=>{try{await setDoc(doc(db,'artifacts',APP,'public','data','walkie_banned',u.id),{name:u.name,timestamp:Date.now()});await deleteDoc(doc(path('presence'),u.id))}catch(e){alert(`Ban failed: ${e.message}`)}};
-      box.append(k,b);d.appendChild(box)
-    }
-    $('roster').appendChild(d)
-  });
+  const now=Date.now(), users=Object.values(S.users).filter(u=>{const serverMs=u.updatedAtServer?.toMillis?.();return !serverMs || (now-serverMs)<45000;});$('count').textContent=`${users.length} ONLINE`;$('roster').innerHTML='';
+  users.forEach(u=>{const d=document.createElement('div');d.className=`p-2 rounded border text-xs flex justify-between ${u.isTransmitting?'border-red-500 bg-red-950/50':'border-slate-800 bg-slate-900'}`;d.textContent=`${u.name}${u.id===S.uid?' (You)':''}${u.isAdmin?' • ADMIN':''}${u.isTransmitting?' • TX':''}`;$('roster').appendChild(d)});
   const active=new Set(users.map(u=>u.id));for(const id of S.pcs.keys())if(!active.has(id))closePeer(id);for(const id of active)if(id!==S.uid&&!S.pcs.has(id)&&S.uid<id)makeOffer(id).catch(console.warn);
   const tx=users.find(u=>u.isTransmitting&&u.id!==S.uid);$('talker').textContent=S.tx?'TRANSMITTING':tx?`${tx.name} TRANSMITTING`:'READY';
 }
@@ -152,39 +142,26 @@ function stopTx(){if(!S.tx)return;S.tx=false;S.stream?.getAudioTracks().forEach(
 
 $('emailForm').onsubmit=async e=>{e.preventDefault();$('authError').classList.add('hidden');try{await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value)}catch(x){err(x)}};
 $('anonymous').onclick=async()=>{try{await signInAnonymously(auth)}catch(x){err(x)}};
+$('google').onclick=async()=>{const p=new GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});try{await signInWithPopup(auth,p)}catch(e){if(['auth/popup-blocked','auth/cancelled-popup-request','auth/operation-not-supported-in-this-environment'].includes(e.code))await signInWithRedirect(auth,p);else err(e)}};
 $('logout').onclick=async()=>{await removePresence();await signOut(auth)};$('mic').onclick=enableMic;
 $('ptt').addEventListener('contextmenu',e=>e.preventDefault());$('ptt').addEventListener('selectstart',e=>e.preventDefault());$('ptt').addEventListener('pointerdown',e=>{e.preventDefault();try{$('ptt').setPointerCapture(e.pointerId)}catch{}startTx()},{passive:false});for(const ev of ['pointerup','pointercancel','lostpointercapture'])$('ptt').addEventListener(ev,e=>{e.preventDefault();stopTx()},{passive:false});
 addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){e.preventDefault();startTx()}});addEventListener('keyup',e=>{if(e.code==='Space'){e.preventDefault();stopTx()}});addEventListener('pagehide',()=>removePresence());document.addEventListener('visibilitychange',()=>{if(document.hidden)stopTx();else publish()});
 
-async function claimCallsign(name){
-  const normalized=name.trim().toLowerCase();
-  const snap=await new Promise((resolve,reject)=>{let off;off=onSnapshot(path('presence'),x=>{off?.();resolve(x)},reject)});
-  const now=Date.now();
-  for(const d of snap.docs){
-    if(d.id===S.uid)continue;
-    const u=d.data();
-    const serverMs=u.updatedAtServer?.toMillis?.();
-    const active=!serverMs || (now-serverMs)<45000;
-    if(active && u.name?.trim().toLowerCase()===normalized)return false;
-  }
-  return true;
-}
-$('callsignForm').onsubmit=async e=>{e.preventDefault();const name=$('preJoinCallsign').value.trim().replace(/\s+/g,' ');if(!name)return;const submit=e.submitter;submit.disabled=true;try{if(!(await claimCallsign(name))){$('notice').textContent=`Callsign "${name}" is already active. Choose another.`;$('callsignModal').classList.remove('hidden');return}S.name=name;S.callsignConfirmed=true;localStorage.setItem(`wtalkCallsign:${S.uid}`,name);$('who').textContent=name;$('callsignModal').classList.add('hidden');$('notice').textContent='Callsign set. Enable the microphone when ready.';await listen()}finally{submit.disabled=false}};
+$('callsignForm').onsubmit=async e=>{e.preventDefault();const name=$('preJoinCallsign').value.trim().replace(/\s+/g,' ');if(!name)return;S.name=name;S.callsignConfirmed=true;localStorage.setItem(`wtalkCallsign:${S.uid}`,name);$('who').textContent=name;$('callsignModal').classList.add('hidden');$('notice').textContent='Callsign set. Enable the microphone when ready.';await listen()};
 $('callsignSignout').onclick=async()=>{S.callsignConfirmed=false;$('callsignModal').classList.add('hidden');await signOut(auth)};
 
 onAuthStateChanged(auth,async u=>{
   if(!u){
     S.uid=null;S.callsignConfirmed=false;S.name='';
-    S.unsubP?.();S.unsubS?.();S.unsubB?.();clearInterval(S.heartbeat);
+    S.unsubP?.();S.unsubS?.();clearInterval(S.heartbeat);
     for(const id of [...S.pcs.keys()])closePeer(id);
     $('callsignModal').classList.add('hidden');$('authModal').classList.remove('hidden');$('logout').classList.add('hidden');$('fb').textContent='SIGNED OUT';
     return;
   }
-  S.uid=u.uid;S.admin=await isAdmin(u);S.callsignConfirmed=false;
+  S.uid=u.uid;S.admin=await isAdmin(u.uid);S.callsignConfirmed=false;
   $('role').textContent=S.admin?'ADMIN':'OPERATOR';
   $('role').className=S.admin?'h-fit px-2 py-1 text-[10px] border border-red-700 text-red-300 rounded':'h-fit px-2 py-1 text-[10px] border border-slate-700 rounded';
   $('authModal').classList.add('hidden');$('logout').classList.remove('hidden');$('fb').textContent='ONLINE';$('fb').className='text-emerald-400';
-  S.unsubB?.();S.unsubB=onSnapshot(collection(db,'artifacts',APP,'public','data','walkie_banned'),snap=>{const banned=snap.docs.some(d=>d.id===S.uid);if(banned){stopTx();$('ptt').disabled=true;$('notice').textContent='Access denied: this account/device is banned.'}});
   const saved=localStorage.getItem(`wtalkCallsign:${u.uid}`)||u.displayName||'';
   $('preJoinCallsign').value=saved;
   $('who').textContent='Awaiting callsign';
