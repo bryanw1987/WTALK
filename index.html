@@ -1,962 +1,128 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-950 text-slate-100 select-none">
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>WTALK - Tactical WebRTC Walkie-Talkie</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>WTALK - Cross-device WebRTC PTT</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&display=swap');
-
-    body { font-family: 'Chakra Petch', sans-serif; }
-    .mono-font { font-family: 'Share Tech Mono', monospace; }
-    
-    @keyframes ptt-pulse {
-      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-      70% { box-shadow: 0 0 0 24px rgba(239, 68, 68, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-    }
-    .ptt-active { animation: ptt-pulse 1.2s infinite; }
-
-    .scanlines {
-      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%);
-      background-size: 100% 4px;
-    }
+    body{font-family:'Chakra Petch',sans-serif}.mono{font-family:'Share Tech Mono',monospace}
+    @keyframes pulse{0%{box-shadow:0 0 0 0 #ef4444aa}70%{box-shadow:0 0 0 24px #ef444400}100%{box-shadow:0 0 0 0 #ef444400}}
+    .tx{animation:pulse 1.2s infinite}.scan{background:linear-gradient(transparent 50%,#0005 50%);background-size:100% 4px}
+    button,input{touch-action:manipulation}
   </style>
 </head>
-<body class="h-full flex flex-col items-center justify-center p-2 sm:p-4 bg-slate-950 overflow-hidden">
-
-  <div class="w-full max-w-md bg-slate-900 border-2 border-slate-700 rounded-3xl shadow-2xl flex flex-col overflow-hidden relative" style="height: 95vh; max-height: 890px;">
-    
-    <div class="bg-slate-850 border-b border-slate-800 p-2.5 px-3 flex flex-col space-y-1.5 text-xs">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-          <span class="tracking-widest text-emerald-400 uppercase font-bold text-[11px]">WTALK WebRTC v1.25</span>
-        </div>
-        <button id="toggleDiagBtn" class="text-[10px] text-slate-400 hover:text-emerald-400 border border-slate-700 hover:border-emerald-500/50 px-2 py-0.5 rounded transition flex items-center space-x-1">
-          <i data-lucide="activity" class="w-3 h-3"></i>
-          <span>Diagnostics</span>
-        </button>
-      </div>
-
-      <div class="grid grid-cols-2 gap-2 pt-0.5">
-        <div id="firebaseStatusBadge" class="flex items-center justify-between px-2 py-1 rounded bg-slate-950 border border-slate-800 text-[10px]">
-          <span class="text-slate-400 font-bold">Firebase:</span>
-          <div class="flex items-center space-x-1">
-            <span id="firebaseStatusDot" class="w-2 h-2 rounded-full bg-amber-500"></span>
-            <span id="firebaseStatusText" class="mono-font text-amber-400 font-bold">INIT...</span>
-          </div>
-        </div>
-
-        <div id="webrtcStatusBadge" class="flex items-center justify-between px-2 py-1 rounded bg-slate-950 border border-slate-800 text-[10px]">
-          <span class="text-slate-400 font-bold">WebRTC:</span>
-          <div class="flex items-center space-x-1">
-            <span id="webrtcStatusDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
-            <span id="webrtcStatusText" class="mono-font text-slate-400 font-bold">STANDBY</span>
-          </div>
-        </div>
-      </div>
+<body class="h-full bg-slate-950 p-2 flex items-center justify-center overflow-hidden">
+<main class="w-full max-w-md h-[96vh] max-h-[900px] bg-slate-900 border-2 border-slate-700 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+  <header class="p-3 border-b border-slate-800">
+    <div class="flex justify-between items-center"><b class="text-emerald-400 tracking-widest text-xs">WTALK WebRTC v1.30</b><button id="logout" class="hidden text-xs text-slate-400 hover:text-white">Sign out</button></div>
+    <div class="grid grid-cols-2 gap-2 mt-2 text-[10px] mono">
+      <div class="bg-slate-950 border border-slate-800 rounded p-2">FIREBASE: <span id="fb" class="text-amber-400">INIT</span></div>
+      <div class="bg-slate-950 border border-slate-800 rounded p-2">WEBRTC: <span id="rtc" class="text-slate-400">STANDBY</span></div>
     </div>
+  </header>
+  <section class="m-3 p-3 bg-slate-950 border border-emerald-500/30 rounded-xl scan">
+    <div class="flex justify-between"><div><div class="text-[9px] text-emerald-600 font-bold tracking-widest">CHANNEL</div><div><span id="chLabel" class="text-3xl text-emerald-400 mono font-black">CH-1</span> <span id="freq" class="text-xs text-emerald-600 mono">462.5625 MHz</span></div></div><span id="role" class="h-fit px-2 py-1 text-[10px] border border-slate-700 rounded">OPERATOR</span></div>
+    <div class="mt-2 bg-slate-900/90 rounded p-2 flex justify-between text-xs"><span id="who">Not signed in</span><span id="talker" class="text-slate-500">READY</span></div>
+  </section>
+  <div id="notice" class="mx-3 mb-2 p-2 text-xs bg-amber-950/50 border border-amber-700 rounded">Sign in, then enable the microphone. Audio requires HTTPS (localhost is allowed).</div>
+  <div class="px-3"><div class="text-[10px] text-slate-500 font-bold mb-1">CHANNEL</div><div id="channels" class="grid grid-cols-4 gap-1.5"></div></div>
+  <section class="flex-1 min-h-0 px-3 mt-3 flex flex-col"><div class="flex justify-between text-[10px] text-slate-500 font-bold"><span>ROSTER</span><span id="count">0 ONLINE</span></div><div id="roster" class="mt-1 flex-1 overflow-y-auto bg-slate-950/60 border border-slate-800 rounded-lg p-2 space-y-1"></div></section>
+  <footer class="p-4 border-t border-slate-800 bg-slate-950 text-center">
+    <button id="mic" class="mb-2 px-3 py-1.5 bg-amber-600 text-slate-950 rounded font-bold text-xs">Enable microphone</button>
+    <div class="text-[10px] text-slate-500 mono mb-2">HOLD BUTTON OR SPACEBAR TO TRANSMIT</div>
+    <button id="ptt" disabled class="w-28 h-28 rounded-full bg-gradient-to-b from-red-500 via-red-600 to-red-800 border-4 border-red-900 text-white font-black text-lg disabled:opacity-40"><span data-lucide="radio" class="mx-auto mb-1"></span>PTT</button>
+  </footer>
+</main>
 
-    <div class="m-3 p-3 bg-slate-950 border border-emerald-500/30 rounded-xl shadow-inner flex flex-col justify-between relative overflow-hidden scanlines">
-      <div class="absolute -top-10 -left-10 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
-
-      <div class="flex justify-between items-start mb-2 relative z-10">
-        <div>
-          <div class="text-[9px] text-emerald-600 uppercase tracking-widest font-bold">CHANNEL FREQUENCY</div>
-          <div class="flex items-baseline space-x-2">
-            <span id="lcdChannelNum" class="text-3xl font-black text-emerald-400 mono-font">CH-1</span>
-            <span id="lcdFreq" class="text-xs text-emerald-600 mono-font">462.5625 MHz</span>
-          </div>
-        </div>
-        <div id="adminBadge" class="hidden px-2 py-1 bg-red-600/20 border border-red-500/50 rounded text-red-400 text-[10px] font-bold tracking-wider flex items-center space-x-1">
-          <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
-          <span>ADMIN ACCESS</span>
-        </div>
-      </div>
-
-      <div class="bg-slate-900/90 border border-slate-800 rounded p-2 mb-2 flex justify-between items-center text-xs relative z-10">
-        <div class="flex items-center space-x-2 overflow-hidden">
-          <i data-lucide="user" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>
-          <span id="currentUserDisplay" class="font-bold text-slate-200 truncate">Operator</span>
-          <span id="userRoleBadge" class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase">Operator</span>
-        </div>
-        <button id="switchAuthModalBtn" class="text-[10px] text-emerald-400 hover:underline flex-shrink-0 ml-2 font-bold">Switch Account</button>
-      </div>
-
-      <div class="h-10 bg-slate-900 rounded border border-emerald-950 p-1 flex items-center justify-center relative z-10">
-        <canvas id="audioVisualizer" class="w-full h-full"></canvas>
-        <div id="visualizerOverlayText" class="absolute inset-0 flex items-center justify-center text-[11px] text-slate-500 font-bold uppercase tracking-wider pointer-events-none">
-          READY / RECEIVING
-        </div>
-      </div>
-    </div>
-
-    <div id="diagPanel" class="hidden mx-3 mb-2 p-2 bg-slate-950 border border-slate-800 rounded-lg text-[10px] font-mono text-slate-300 space-y-1 max-h-32 overflow-y-auto">
-      <div class="flex justify-between items-center border-b border-slate-800 pb-1 text-slate-400 font-bold">
-        <span>SIGNALING LOG</span>
-        <button id="clearLogBtn" class="text-slate-500 hover:text-slate-300">Clear</button>
-      </div>
-      <div id="diagLogContent" class="space-y-0.5 text-slate-400">
-        <div>[SYS] Application initialized. Waiting for connection...</div>
-      </div>
-    </div>
-
-    <div id="micBanner" class="mx-3 mb-2 p-2 bg-amber-950/40 border border-amber-600/40 rounded-lg text-amber-200 text-xs flex items-center justify-between">
-      <div class="flex items-center space-x-2">
-        <i data-lucide="alert-circle" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
-        <span>Microphone access required for PTT audio.</span>
-      </div>
-      <button id="requestMicBtn" class="px-2 py-1 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-[11px] rounded transition">
-        Enable Mic
-      </button>
-    </div>
-
-    <div id="bannedBanner" class="hidden mx-3 mb-2 p-3 bg-red-950/90 border border-red-600 rounded-lg text-red-200 text-xs text-center font-bold">
-      🚫 ACCESS DENIED: YOU HAVE BEEN KICKED / BANNED BY ADMINISTRATOR
-    </div>
-
-    <div class="px-3 mb-2">
-      <div class="text-[10px] font-bold text-slate-500 uppercase mb-1 tracking-wider">Select Frequency Channel</div>
-      <div class="grid grid-cols-4 gap-1.5" id="channelButtonsContainer"></div>
-    </div>
-
-    <div class="flex-1 px-3 overflow-hidden flex flex-col mb-2">
-      <div class="flex justify-between items-center mb-1">
-        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Channel Roster</span>
-        <span id="userCount" class="text-[10px] font-mono text-emerald-500">1 Online</span>
-      </div>
-      <div id="userRoster" class="flex-1 overflow-y-auto space-y-1 pr-1 bg-slate-950/60 rounded-lg p-2 border border-slate-800"></div>
-    </div>
-
-    <div class="bg-slate-950 p-4 border-t border-slate-800 flex flex-col items-center justify-center relative">
-      <div class="text-[10px] text-slate-500 font-mono mb-2 uppercase tracking-widest text-center">
-        Hold to Transmit ( Spacebar or Button )
-      </div>
-      <button id="pttBtn" class="w-28 h-28 rounded-full bg-gradient-to-b from-red-500 via-red-600 to-red-800 text-white font-black text-lg tracking-wider border-4 border-red-900/60 shadow-lg active:scale-95 transition-transform flex flex-col items-center justify-center space-y-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
-        <i data-lucide="radio" class="w-8 h-8"></i>
-        <span>PTT</span>
-      </button>
-    </div>
-
-    <!-- PRE-WARMED AUDIO POOL FOR MOBILE SAFARI/CHROME -->
-    <div id="remoteAudioContainer" style="position: absolute; top: -9999px; left: -9999px; width: 1px; height: 1px; overflow: hidden;">
-      <audio id="audio-slot-0" autoplay playsinline></audio>
-      <audio id="audio-slot-1" autoplay playsinline></audio>
-      <audio id="audio-slot-2" autoplay playsinline></audio>
-      <audio id="audio-slot-3" autoplay playsinline></audio>
-      <audio id="audio-slot-4" autoplay playsinline></audio>
-      <audio id="audio-slot-5" autoplay playsinline></audio>
-      <audio id="audio-slot-6" autoplay playsinline></audio>
-      <audio id="audio-slot-7" autoplay playsinline></audio>
-    </div>
+<div id="authModal" class="fixed inset-0 bg-black/85 backdrop-blur flex items-center justify-center p-4 z-50">
+  <div class="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4">
+    <h1 class="text-lg font-bold">Sign in to WTALK</h1>
+    <div id="authError" class="hidden text-xs text-red-200 bg-red-950 border border-red-700 rounded p-2"></div>
+    <form id="emailForm" class="space-y-3">
+      <input id="email" type="email" autocomplete="email" required placeholder="Email" class="w-full bg-slate-950 border border-slate-700 rounded p-2">
+      <input id="password" type="password" autocomplete="current-password" required placeholder="Password" class="w-full bg-slate-950 border border-slate-700 rounded p-2">
+      <button class="w-full p-2.5 bg-emerald-600 text-slate-950 rounded font-bold">Sign in with email</button>
+    </form>
+    <div class="flex items-center gap-2 text-xs text-slate-500"><span class="h-px bg-slate-700 flex-1"></span>OR<span class="h-px bg-slate-700 flex-1"></span></div>
+    <button id="google" class="w-full p-2.5 bg-white text-slate-900 rounded font-bold">Continue with Google</button>
   </div>
-
-  <div id="authModal" class="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl p-5 shadow-2xl space-y-4">
-      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-        <h3 id="authModalTitle" class="text-lg font-bold text-slate-100 flex items-center space-x-2">
-          <i data-lucide="radio" class="w-5 h-5 text-emerald-400"></i>
-          <span>Join Channel</span>
-        </h3>
-        <span id="authModeBadge" class="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-700/50 px-2 py-0.5 rounded font-bold uppercase">
-          Operator Mode
-        </span>
-      </div>
-
-      <div id="authErrorBox" class="hidden p-2.5 bg-red-950/80 border border-red-700/80 rounded-lg text-red-200 text-xs font-semibold flex items-center space-x-2">
-        <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400 flex-shrink-0"></i>
-        <span id="authErrorMsg">Authentication failed.</span>
-      </div>
-
-      <form id="anonymousAuthForm" class="space-y-3">
-        <div>
-          <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1">Operator Callsign</label>
-          <input type="text" id="callsignInput" placeholder="e.g. Strike-1" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500" />
-        </div>
-        <button type="submit" id="joinAnonBtn" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded-lg transition text-sm flex items-center justify-center space-x-2">
-          <i data-lucide="arrow-right" class="w-4 h-4"></i>
-          <span>Join Channel</span>
-        </button>
-      </form>
-
-      <form id="adminAuthForm" class="hidden space-y-3">
-        <div>
-          <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1">Admin Email</label>
-          <input type="email" id="adminEmailInput" placeholder="admin@domain.com" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500" />
-        </div>
-        <div>
-          <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1">Admin Password</label>
-          <input type="password" id="adminPasswordInput" placeholder="••••••••" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500" />
-        </div>
-        <button type="submit" id="loginAdminBtn" class="w-full py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg transition text-sm flex items-center justify-center space-x-2">
-          <i data-lucide="shield-check" class="w-4 h-4"></i>
-          <span>Login as Administrator</span>
-        </button>
-      </form>
-
-      <div class="pt-2 border-t border-slate-800 flex justify-center">
-        <button id="toggleAuthModeBtn" type="button" class="text-xs text-slate-400 hover:text-emerald-400 transition flex items-center space-x-1 underline">
-          <i data-lucide="shield" class="w-3.5 h-3.5"></i>
-          <span id="toggleAuthModeText">Switch to Admin Login</span>
-        </button>
-      </div>
-    </div>
-  </div>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    lucide.createIcons();
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyD_N9nYpXbh-TYrLEqhcoEmgWnNBDyvNxs",
-      authDomain: "wtalk-222b2.firebaseapp.com",
-      databaseURL: "https://wtalk-222b2-default-rtdb.firebaseio.com",
-      projectId: "wtalk-222b2",
-      storageBucket: "wtalk-222b2.firebasestorage.app",
-      messagingSenderId: "566131595670",
-      appId: "1:566131595670:web:4b9143db08a23ba7b265b7",
-      measurementId: "G-89RQXQW4ZR"
-    };
-
-    const state = {
-      appId: typeof __app_id !== 'undefined' ? __app_id : 'wtalk-222b2',
-      currentChannel: 1,
-      userName: 'Operator',
-      userId: null,
-      isAdmin: false,
-      isAdminMode: false,
-      isTransmitting: false,
-      isMicVerified: false,
-      isBanned: false,
-      isPresenceEstablished: false,
-      presenceInterval: null,
-      
-      audioStream: null,
-      audioContext: null,
-      analyserNode: null,
-      audioSlots: Array(8).fill(null), // Audio slot tracking for mobile bypass
-      
-      app: null, 
-      db: null,
-      auth: null,
-      unsubscribePresence: null,
-      unsubscribeSignals: null,
-      unsubscribeBans: null,
-
-      peerConnections: {},
-      channelUsers: {},
-      firebaseStatus: 'DISCONNECTED',
-      webrtcStatus: 'IDLE'
-    };
-
-    let iceServers = {
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]
-    };
-
-    const elements = {
-      firebaseStatusDot: document.getElementById('firebaseStatusDot'),
-      firebaseStatusText: document.getElementById('firebaseStatusText'),
-      webrtcStatusDot: document.getElementById('webrtcStatusDot'),
-      webrtcStatusText: document.getElementById('webrtcStatusText'),
-      lcdChannelNum: document.getElementById('lcdChannelNum'),
-      lcdFreq: document.getElementById('lcdFreq'),
-      adminBadge: document.getElementById('adminBadge'),
-      currentUserDisplay: document.getElementById('currentUserDisplay'),
-      userRoleBadge: document.getElementById('userRoleBadge'),
-      switchAuthModalBtn: document.getElementById('switchAuthModalBtn'),
-      audioVisualizer: document.getElementById('audioVisualizer'),
-      visualizerOverlayText: document.getElementById('visualizerOverlayText'),
-      toggleDiagBtn: document.getElementById('toggleDiagBtn'),
-      diagPanel: document.getElementById('diagPanel'),
-      diagLogContent: document.getElementById('diagLogContent'),
-      clearLogBtn: document.getElementById('clearLogBtn'),
-      micBanner: document.getElementById('micBanner'),
-      requestMicBtn: document.getElementById('requestMicBtn'),
-      bannedBanner: document.getElementById('bannedBanner'),
-      channelButtonsContainer: document.getElementById('channelButtonsContainer'),
-      userRoster: document.getElementById('userRoster'),
-      userCount: document.getElementById('userCount'),
-      pttBtn: document.getElementById('pttBtn'),
-      authModal: document.getElementById('authModal'),
-      authModalTitle: document.getElementById('authModalTitle'),
-      authModeBadge: document.getElementById('authModeBadge'),
-      authErrorBox: document.getElementById('authErrorBox'),
-      authErrorMsg: document.getElementById('authErrorMsg'),
-      anonymousAuthForm: document.getElementById('anonymousAuthForm'),
-      adminAuthForm: document.getElementById('adminAuthForm'),
-      callsignInput: document.getElementById('callsignInput'),
-      adminEmailInput: document.getElementById('adminEmailInput'),
-      adminPasswordInput: document.getElementById('adminPasswordInput'),
-      toggleAuthModeBtn: document.getElementById('toggleAuthModeBtn'),
-      toggleAuthModeText: document.getElementById('toggleAuthModeText')
-    };
-
-    const channelFrequencies = [
-      '462.5625 MHz', '462.5875 MHz', '462.6125 MHz', '462.6375 MHz',
-      '462.6625 MHz', '462.6875 MHz', '462.7125 MHz', '467.5625 MHz'
-    ];
-
-    function logDiag(message, type = 'info') {
-      const time = new Date().toLocaleTimeString().split(' ')[0];
-      const entry = document.createElement('div');
-      entry.className = type === 'error' ? 'text-red-400 font-bold' : (type === 'warn' ? 'text-amber-400' : 'text-slate-400');
-      entry.textContent = `[${time}] ${message}`;
-      elements.diagLogContent.appendChild(entry);
-      elements.diagLogContent.scrollTop = elements.diagLogContent.scrollHeight;
-    }
-
-    function updateStatusUI() {
-      if (state.firebaseStatus === 'CONNECTED') {
-        elements.firebaseStatusDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
-        elements.firebaseStatusText.className = "mono-font text-emerald-400 font-bold";
-        elements.firebaseStatusText.textContent = "ONLINE";
-      } else if (state.firebaseStatus === 'CONNECTING') {
-        elements.firebaseStatusDot.className = "w-2 h-2 rounded-full bg-amber-500 animate-ping";
-        elements.firebaseStatusText.className = "mono-font text-amber-400 font-bold";
-        elements.firebaseStatusText.textContent = "CONNECTING";
-      } else {
-        elements.firebaseStatusDot.className = "w-2 h-2 rounded-full bg-red-500";
-        elements.firebaseStatusText.className = "mono-font text-red-400 font-bold";
-        elements.firebaseStatusText.textContent = "OFFLINE";
-      }
-
-      const peerCount = Object.keys(state.peerConnections).length;
-      if (peerCount > 0) {
-        elements.webrtcStatusDot.className = "w-2 h-2 rounded-full bg-emerald-500";
-        elements.webrtcStatusText.className = "mono-font text-emerald-400 font-bold";
-        elements.webrtcStatusText.textContent = `${peerCount} PEER${peerCount === 1 ? '' : 'S'}`;
-      } else {
-        elements.webrtcStatusDot.className = "w-2 h-2 rounded-full bg-slate-500";
-        elements.webrtcStatusText.className = "mono-font text-slate-400 font-bold";
-        elements.webrtcStatusText.textContent = "STANDBY";
-      }
-    }
-
-    function playAudioFx(type = 'start') {
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        if (type === 'start') {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.frequency.setValueAtTime(880, ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.06);
-          gain.gain.setValueAtTime(0.12, ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
-          osc.start();
-          osc.stop(ctx.currentTime + 0.06);
-        } else {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.frequency.setValueAtTime(1200, ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.08);
-          gain.gain.setValueAtTime(0.1, ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-          osc.start();
-          osc.stop(ctx.currentTime + 0.08);
-
-          setTimeout(() => {
-            try {
-              const bufferSize = ctx.sampleRate * 0.07;
-              const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-              const data = buffer.getChannelData(0);
-              for (let i = 0; i < bufferSize; i++) {
-                data[i] = Math.random() * 2 - 1;
-              }
-              const noise = ctx.createBufferSource();
-              noise.buffer = buffer;
-              const noiseGain = ctx.createGain();
-              noiseGain.gain.setValueAtTime(0.04, ctx.currentTime);
-              noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.07);
-              noise.connect(noiseGain);
-              noiseGain.connect(ctx.destination);
-              noise.start();
-            } catch (e) {}
-          }, 70);
-        }
-      } catch (e) {}
-    }
-
-    // PRE-WARM ALL AUDIO ELEMENTS TO BYPASS MOBILE AUTOPLAY BLOCK
-    function preWarmAudioElements() {
-      for(let i=0; i<8; i++) {
-        const el = document.getElementById('audio-slot-' + i);
-        if(el && el.srcObject === null) {
-           el.play().catch(()=>{}); 
-        }
-      }
-    }
-
-    const wakeAudioEngine = () => {
-      preWarmAudioElements();
-      if (state.audioContext && state.audioContext.state === 'suspended') {
-        state.audioContext.resume();
-      }
-    };
-    document.addEventListener('click', wakeAudioEngine);
-    document.addEventListener('touchstart', wakeAudioEngine);
-
-    async function requestMicrophone() {
-      try {
-        state.audioStream = await navigator.mediaDevices.getUserMedia({ 
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, 
-          video: false 
-        });
-        state.isMicVerified = true;
-        
-        // Mute original stream immediately so WebRTC doesn't transmit until PTT
-        state.audioStream.getAudioTracks().forEach(track => track.enabled = false);
-
-        state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // Clone stream for the local visualizer (clone is unaffected by original track mute)
-        const clonedStream = state.audioStream.clone();
-        const source = state.audioContext.createMediaStreamSource(clonedStream);
-        
-        state.analyserNode = state.audioContext.createAnalyser();
-        state.analyserNode.fftSize = 64;
-        source.connect(state.analyserNode);
-
-        elements.micBanner.classList.add('hidden');
-        logDiag("Microphone active.");
-        startVisualizerAnimation();
-        return true;
-      } catch (err) {
-        state.isMicVerified = false;
-        elements.micBanner.classList.remove('hidden');
-        logDiag("Microphone access denied.", 'error');
-        return false;
-      }
-    }
-
-    function startVisualizerAnimation() {
-      const canvas = elements.audioVisualizer;
-      const ctx = canvas.getContext('2d');
-      const dataArray = new Uint8Array(state.analyserNode ? state.analyserNode.frequencyBinCount : 16);
-
-      function render() {
-        requestAnimationFrame(render);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        if (state.isTransmitting && state.analyserNode) {
-          state.analyserNode.getByteFrequencyData(dataArray);
-          const barWidth = (canvas.width / dataArray.length) * 1.5;
-          let x = 0;
-          for (let i = 0; i < dataArray.length; i++) {
-            const barHeight = (dataArray[i] / 255) * canvas.height;
-            ctx.fillStyle = '#10b981';
-            ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
-            x += barWidth;
-          }
-        }
-      }
-      render();
-    }
-
-    async function initFirebase() {
-      state.firebaseStatus = 'CONNECTING';
-      updateStatusUI();
-
-      try {
-        state.app = initializeApp(firebaseConfig);
-        state.db = getFirestore(state.app);
-        state.auth = getAuth(state.app);
-
-        onAuthStateChanged(state.auth, (user) => {
-          if (user) {
-            state.userId = user.uid;
-            state.firebaseStatus = 'CONNECTED';
-            updateStatusUI();
-            logDiag(`Authenticated UID: ${user.uid.substring(0, 8)}`);
-
-            setupBannedListener();
-            setupChannelPresenceAndSignaling();
-          } else {
-            state.firebaseStatus = 'DISCONNECTED';
-            updateStatusUI();
-          }
-        });
-      } catch (err) {
-        state.firebaseStatus = 'ERROR';
-        updateStatusUI();
-        logDiag(`Firebase Error: ${err.message}`, 'error');
-      }
-    }
-
-    async function handleAnonymousLogin(callsign) {
-      hideAuthError();
-      try {
-        preWarmAudioElements();
-        state.userName = callsign;
-        state.isAdmin = false;
-        updateRoleDisplay();
-        await signInAnonymously(state.auth);
-        elements.authModal.classList.add('hidden');
-        publishPresence();
-      } catch (err) {
-        showAuthError(`Auth failed: ${err.message}`);
-      }
-    }
-
-    async function handleAdminLogin(email, password) {
-      hideAuthError();
-      try {
-        preWarmAudioElements();
-        await signInWithEmailAndPassword(state.auth, email, password);
-        state.userName = "Bryan Wedekind";
-        state.isAdmin = true;
-        updateRoleDisplay();
-        elements.authModal.classList.add('hidden');
-        publishPresence();
-      } catch (err) {
-        showAuthError(`Admin Login Failed: ${err.message}`);
-      }
-    }
-
-    function updateRoleDisplay() {
-      elements.currentUserDisplay.textContent = state.userName;
-      if (state.isAdmin) {
-        elements.adminBadge.classList.remove('hidden');
-        elements.userRoleBadge.textContent = 'SUPER ADMIN';
-        elements.userRoleBadge.className = "px-1.5 py-0.5 text-[9px] font-bold rounded bg-red-900/80 text-red-300 border border-red-700/80 uppercase";
-      } else {
-        elements.adminBadge.classList.add('hidden');
-        elements.userRoleBadge.textContent = 'OPERATOR';
-        elements.userRoleBadge.className = "px-1.5 py-0.5 text-[9px] font-bold rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase";
-      }
-    }
-
-    function showAuthError(msg) {
-      elements.authErrorMsg.textContent = msg;
-      elements.authErrorBox.classList.remove('hidden');
-    }
-    function hideAuthError() {
-      elements.authErrorBox.classList.add('hidden');
-    }
-
-    function setupBannedListener() {
-      if (!state.db || !state.userId) return;
-      const banRef = collection(state.db, 'artifacts', state.appId, 'public', 'data', 'walkie_banned');
-      
-      if (state.unsubscribeBans) state.unsubscribeBans();
-
-      state.unsubscribeBans = onSnapshot(banRef, (snapshot) => {
-        let isCurrentBanned = false;
-        snapshot.forEach(doc => {
-          if (doc.id === state.userId || doc.data().name?.toLowerCase() === state.userName.toLowerCase()) {
-            isCurrentBanned = true;
-          }
-        });
-
-        state.isBanned = isCurrentBanned;
-        if (state.isBanned) {
-          elements.bannedBanner.classList.remove('hidden');
-          elements.pttBtn.disabled = true;
-          stopTransmission();
-          logDiag("You are BANNED.", 'error');
-        } else {
-          elements.bannedBanner.classList.add('hidden');
-          elements.pttBtn.disabled = false;
-        }
-      });
-    }
-
-   function setupChannelPresenceAndSignaling() {
-      if (!state.db || !state.userId || state.isBanned) return;
-      if (state.unsubscribePresence) state.unsubscribePresence();
-      if (state.unsubscribeSignals) state.unsubscribeSignals();
-
-      const ch = state.currentChannel;
-      
-      const presenceRef = collection(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${ch}`);
-      state.unsubscribePresence = onSnapshot(presenceRef, (snapshot) => {
-        const newUsers = {};
-
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          newUsers[doc.id] = data;
-        });
-
-        // REMOVED AUTO-KICK: The app will no longer automatically kick anyone. 
-        // You can still manually use the "Kick" button next to their name in the roster if needed.
-
-        state.channelUsers = newUsers;
-        updateRosterUI();
-        manageWebRTCPeerConnections();
-      });
-
-      publishPresence();
-
-      if (state.presenceInterval) clearInterval(state.presenceInterval);
-      state.presenceInterval = setInterval(() => {
-        publishPresence();
-      }, 5000);
-
-      const signalsRef = collection(state.db, 'artifacts', state.appId, 'public', 'data', `signals_ch${ch}`);
-      state.unsubscribeSignals = onSnapshot(signalsRef, (snapshot) => {
-        snapshot.docChanges().forEach(change => {
-          if (change.type === 'added') {
-            const signal = change.doc.data();
-            if (signal.to === state.userId) handleIncomingSignal(signal, change.doc.id);
-          }
-        });
-      });
-    }
-
-    function publishPresence() {
-      if (!state.db || !state.userId || state.isBanned) return;
-      const myDoc = doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${state.currentChannel}`, state.userId);
-      setDoc(myDoc, {
-        id: state.userId,
-        name: state.userName,
-        isAdmin: state.isAdmin,
-        isTransmitting: state.isTransmitting,
-        updatedAt: Date.now() 
-      }, { merge: true }).then(() => {
-        state.isPresenceEstablished = true;
-      }).catch(()=>{});
-    }
-
-    function manageWebRTCPeerConnections() {
-      const activeIds = Object.keys(state.channelUsers);
-
-      Object.keys(state.peerConnections).forEach(peerId => {
-        if (!activeIds.includes(peerId)) closePeerConnection(peerId);
-      });
-
-      activeIds.forEach(peerId => {
-        if (peerId !== state.userId && !state.peerConnections[peerId]) {
-          if (state.userId < peerId) initiatePeerOffer(peerId);
-        }
-      });
-      updateStatusUI();
-    }
-
-    function initiatePeerOffer(peerId) {
-      const pc = createPeerConnection(peerId);
-      pc.createOffer().then(offer => pc.setLocalDescription(offer)).then(() => {
-        sendSignal({ type: 'offer', from: state.userId, to: peerId, sdp: pc.localDescription.sdp });
-      }).catch(()=>{});
-    }
-
-    function createPeerConnection(peerId) {
-      if (state.peerConnections[peerId]) return state.peerConnections[peerId];
-      const pc = new RTCPeerConnection(iceServers);
-
-      if (state.audioStream) {
-        state.audioStream.getTracks().forEach(track => pc.addTrack(track, state.audioStream));
-      }
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          sendSignal({ type: 'ice', from: state.userId, to: peerId, candidate: event.candidate.toJSON() });
-        }
-      };
-
-      pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'failed' || pc.connectionState === 'closed') closePeerConnection(peerId);
-        updateStatusUI();
-      };
-
-      // Assign incoming stream to a pre-warmed slot to bypass mobile autoplay blocks
-      pc.ontrack = (event) => {
-        const stream = event.streams[0];
-        
-        let slotIndex = state.audioSlots.indexOf(peerId);
-        if (slotIndex === -1) slotIndex = state.audioSlots.indexOf(null);
-        if (slotIndex === -1) slotIndex = 0; 
-        
-        state.audioSlots[slotIndex] = peerId;
-        const audioEl = document.getElementById('audio-slot-' + slotIndex);
-        
-        if (audioEl) {
-           audioEl.srcObject = stream;
-           audioEl.play().catch(e => logDiag(`Autoplay blocked: ${e.message}`, 'warn'));
-        }
-      };
-
-      state.peerConnections[peerId] = pc;
-      return pc;
-    }
-
-    function handleIncomingSignal(signal, signalDocId) {
-      const fromPeer = signal.from;
-      if (signal.type === 'offer') {
-        const pc = createPeerConnection(fromPeer);
-        pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }))
-          .then(() => pc.createAnswer())
-          .then(answer => pc.setLocalDescription(answer))
-          .then(() => { sendSignal({ type: 'answer', from: state.userId, to: fromPeer, sdp: pc.localDescription.sdp }); })
-          .catch(()=>{});
-      } else if (signal.type === 'answer') {
-        const pc = state.peerConnections[fromPeer];
-        if (pc) pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp })).catch(()=>{});
-      } else if (signal.type === 'ice') {
-        const pc = state.peerConnections[fromPeer];
-        if (pc && signal.candidate) pc.addIceCandidate(new RTCIceCandidate(signal.candidate)).catch(()=>{});
-      }
-
-      if (state.db && signalDocId) {
-        deleteDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', `signals_ch${state.currentChannel}`, signalDocId)).catch(() => {});
-      }
-    }
-
-    function sendSignal(signalData) {
-      if (!state.db) return;
-      const signalRef = doc(collection(state.db, 'artifacts', state.appId, 'public', 'data', `signals_ch${state.currentChannel}`));
-      setDoc(signalRef, { ...signalData, timestamp: Date.now() }).catch(()=>{});
-    }
-
-    function closePeerConnection(peerId) {
-      if (state.peerConnections[peerId]) {
-        state.peerConnections[peerId].close();
-        delete state.peerConnections[peerId];
-      }
-      
-      let slotIndex = state.audioSlots.indexOf(peerId);
-      if (slotIndex !== -1) {
-        state.audioSlots[slotIndex] = null;
-        const audioEl = document.getElementById('audio-slot-' + slotIndex);
-        if (audioEl) audioEl.srcObject = null;
-      }
-      
-      updateStatusUI();
-    }
-
-    function startTransmission() {
-      if (state.isBanned) return;
-      if (!state.isMicVerified) { requestMicrophone(); return; }
-      if (state.isTransmitting) return;
-
-      state.isTransmitting = true;
-      playAudioFx('start');
-
-      // Unmute the WebRTC track
-      if (state.audioStream) {
-        state.audioStream.getAudioTracks().forEach(track => track.enabled = true);
-      }
-
-      elements.pttBtn.classList.add('ptt-active', 'scale-95');
-      elements.visualizerOverlayText.textContent = "TRANSMITTING...";
-      elements.visualizerOverlayText.className = "absolute inset-0 flex items-center justify-center text-[11px] text-red-400 font-bold uppercase tracking-wider animate-pulse pointer-events-none";
-
-      publishPresence();
-    }
-
-    function stopTransmission() {
-      if (!state.isTransmitting) return;
-
-      state.isTransmitting = false;
-      playAudioFx('stop');
-
-      // Mute the WebRTC track
-      if (state.audioStream) {
-        state.audioStream.getAudioTracks().forEach(track => track.enabled = false);
-      }
-
-      elements.pttBtn.classList.remove('ptt-active', 'scale-95');
-      elements.visualizerOverlayText.textContent = "READY / RECEIVING";
-      elements.visualizerOverlayText.className = "absolute inset-0 flex items-center justify-center text-[11px] text-slate-500 font-bold uppercase tracking-wider pointer-events-none";
-
-      publishPresence();
-    }
-
-    function renderChannelButtons() {
-      elements.channelButtonsContainer.innerHTML = '';
-      for (let i = 1; i <= 8; i++) {
-        const btn = document.createElement('button');
-        const isActive = state.currentChannel === i;
-        btn.className = `py-2 rounded font-bold text-xs border transition flex flex-col items-center ${
-          isActive ? 'bg-emerald-600 border-emerald-400 text-slate-950 shadow-md' : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
-        }`;
-        btn.innerHTML = `<span>CH-${i}</span>`;
-        btn.onclick = () => switchChannel(i);
-        elements.channelButtonsContainer.appendChild(btn);
-      }
-    }
-
-    function switchChannel(chNumber) {
-      if (state.isTransmitting) stopTransmission();
-
-      if (state.db && state.userId) {
-        deleteDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${state.currentChannel}`, state.userId)).catch(()=>{});
-      }
-
-      state.isPresenceEstablished = false;
-      Object.keys(state.peerConnections).forEach(peerId => closePeerConnection(peerId));
-
-      state.currentChannel = chNumber;
-      elements.lcdChannelNum.textContent = `CH-${chNumber}`;
-      elements.lcdFreq.textContent = channelFrequencies[chNumber - 1];
-
-      renderChannelButtons();
-      setupChannelPresenceAndSignaling();
-    }
-
-    function updateRosterUI() {
-      const usersList = Object.values(state.channelUsers);
-      elements.userCount.textContent = `${usersList.length} Online`;
-      elements.userRoster.innerHTML = '';
-
-      if (usersList.length === 0) {
-        elements.userRoster.innerHTML = `<div class="text-[11px] text-slate-500 text-center py-2">No other operators online.</div>`;
-        return;
-      }
-
-      usersList.forEach(u => {
-        const isSelf = u.id === state.userId;
-        const isBryanAdmin = (u.isAdmin || u.name?.trim().toLowerCase() === 'bryan wedekind');
-
-        const item = document.createElement('div');
-        item.className = `flex items-center justify-between p-2 rounded text-xs border ${
-          u.isTransmitting ? 'bg-red-950/40 border-red-500/50 text-red-200 animate-pulse' : 'bg-slate-900/60 border-slate-800 text-slate-300'
-        }`;
-
-        item.innerHTML = `
-          <div class="flex items-center space-x-2 truncate">
-            <span class="w-2 h-2 rounded-full ${u.isTransmitting ? 'bg-red-500 animate-ping' : 'bg-emerald-500'}"></span>
-            <span class="font-semibold truncate">${u.name} ${isSelf ? '(You)' : ''}</span>
-            ${isBryanAdmin ? '<span class="text-[9px] bg-red-900/80 text-red-300 px-1 rounded font-bold border border-red-700/50">ADMIN</span>' : ''}
-            ${u.isTransmitting ? '<span class="text-[9px] bg-red-600 px-1 rounded text-white font-bold">TX</span>' : ''}
-          </div>
-          <div class="flex items-center space-x-1 flex-shrink-0">
-            ${state.isAdmin && !isSelf ? `
-                <button data-action="kick" data-id="${u.id}" class="px-2 py-0.5 bg-amber-600/30 hover:bg-amber-600 text-amber-200 text-[10px] font-bold rounded border border-amber-500/40">Kick</button>
-                <button data-action="ban" data-id="${u.id}" data-name="${u.name}" class="px-2 py-0.5 bg-red-600/30 hover:bg-red-600 text-red-200 text-[10px] font-bold rounded border border-red-500/40">Ban</button>
-              ` : ''
-            }
-          </div>
-        `;
-
-        if (state.isAdmin && !isSelf) {
-          const kickBtn = item.querySelector('[data-action="kick"]');
-          const banBtn = item.querySelector('[data-action="ban"]');
-          if (kickBtn) kickBtn.onclick = () => adminKickUser(u.id);
-          if (banBtn) banBtn.onclick = () => adminBanUser(u.id, u.name);
-        }
-        elements.userRoster.appendChild(item);
-      });
-    }
-
-    function adminKickUser(targetId) {
-      if (!state.isAdmin || !state.db) return;
-      deleteDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${state.currentChannel}`, targetId)).catch(()=>{});
-    }
-
-    function adminBanUser(targetId, targetName) {
-      if (!state.isAdmin || !state.db) return;
-      setDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', 'walkie_banned', targetId), {
-        id: targetId, name: targetName, timestamp: Date.now()
-      }).then(() => adminKickUser(targetId)).catch(()=>{});
-    }
-
-    function setupEventListeners() {
-      window.addEventListener('beforeunload', () => {
-        if (state.db && state.userId) {
-          deleteDoc(doc(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${state.currentChannel}`, state.userId)).catch(()=>{});
-        }
-      });
-
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-          if (state.audioContext && state.audioContext.state === 'suspended') {
-            state.audioContext.resume();
-          }
-          publishPresence(); 
-        }
-      });
-      window.addEventListener('focus', publishPresence);
-
-      elements.pttBtn.addEventListener('mousedown', startTransmission);
-      elements.pttBtn.addEventListener('mouseup', stopTransmission);
-      elements.pttBtn.addEventListener('mouseleave', stopTransmission);
-      elements.pttBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startTransmission(); });
-      elements.pttBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopTransmission(); });
-      elements.pttBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); stopTransmission(); });
-
-      window.addEventListener('keydown', (e) => {
-        if (e.code === 'Space' && !e.repeat && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-          e.preventDefault(); startTransmission();
-        }
-      });
-      window.addEventListener('keyup', (e) => {
-        if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-          e.preventDefault(); stopTransmission();
-        }
-      });
-
-      elements.requestMicBtn.addEventListener('click', requestMicrophone);
-
-      elements.toggleAuthModeBtn.addEventListener('click', () => {
-        state.isAdminMode = !state.isAdminMode;
-        hideAuthError();
-        if (state.isAdminMode) {
-          elements.anonymousAuthForm.classList.add('hidden');
-          elements.adminAuthForm.classList.remove('hidden');
-          elements.authModalTitle.innerHTML = `<i data-lucide="shield-check" class="w-5 h-5 text-red-400"></i><span>Admin Login</span>`;
-          elements.authModeBadge.textContent = 'Admin Mode';
-          elements.authModeBadge.className = 'text-[10px] bg-red-950 text-red-400 border border-red-700/50 px-2 py-0.5 rounded font-bold uppercase';
-          elements.toggleAuthModeText.textContent = 'Switch to Operator Callsign';
-        } else {
-          elements.adminAuthForm.classList.add('hidden');
-          elements.anonymousAuthForm.classList.remove('hidden');
-          elements.authModalTitle.innerHTML = `<i data-lucide="radio" class="w-5 h-5 text-emerald-400"></i><span>Join Channel</span>`;
-          elements.authModeBadge.textContent = 'Operator Mode';
-          elements.authModeBadge.className = 'text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-700/50 px-2 py-0.5 rounded font-bold uppercase';
-          elements.toggleAuthModeText.textContent = 'Switch to Admin Login';
-        }
-        lucide.createIcons();
-      });
-
-      elements.anonymousAuthForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const callsign = elements.callsignInput.value.trim();
-        if (callsign) handleAnonymousLogin(callsign);
-      });
-
-      elements.adminAuthForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const email = elements.adminEmailInput.value.trim();
-        const pass = elements.adminPasswordInput.value;
-        if (email && pass) handleAdminLogin(email, pass);
-      });
-
-      elements.switchAuthModalBtn.addEventListener('click', () => elements.authModal.classList.remove('hidden'));
-      elements.toggleDiagBtn.addEventListener('click', () => elements.diagPanel.classList.toggle('hidden'));
-      elements.clearLogBtn.addEventListener('click', () => elements.diagLogContent.innerHTML = '');
-    }
-
-    window.onload = async function() {
-      renderChannelButtons();
-      setupEventListeners();
-      await requestMicrophone();
-      
-      try {
-        logDiag("Fetching TURN network relays...");
-        const response = await fetch("https://wtalk.metered.live/api/v1/turn/credentials?apiKey=4696c8ba71fbe0ccc3c4e8e285fa4b3bba96");
-        const meteredServers = await response.json();
-        
-        iceServers = {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            ...meteredServers
-          ]
-        };
-        logDiag("TURN relays active. Cellular audio enabled.");
-      } catch (err) {
-        logDiag(`TURN fetch failed: ${err.message}`, 'warn');
-      }
-
-      await initFirebase();
-    };
-  </script>
-</body>
-</html>
+</div>
+
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult,signOut} from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+import {getFirestore,doc,getDoc,setDoc,deleteDoc,collection,onSnapshot,serverTimestamp} from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+const firebaseConfig={apiKey:'AIzaSyD_N9nYpXbh-TYrLEqhcoEmgWnNBDyvNxs',authDomain:'wtalk-222b2.firebaseapp.com',projectId:'wtalk-222b2',storageBucket:'wtalk-222b2.firebasestorage.app',messagingSenderId:'566131595670',appId:'1:566131595670:web:4b9143db08a23ba7b265b7'};
+const APP='wtalk-222b2', FREQ=['462.5625 MHz','462.5875 MHz','462.6125 MHz','462.6375 MHz','462.6625 MHz','462.6875 MHz','462.7125 MHz','467.5625 MHz'];
+const app=initializeApp(firebaseConfig), auth=getAuth(app), db=getFirestore(app);
+const $=id=>document.getElementById(id), S={uid:null,name:'',admin:false,ch:1,stream:null,tx:false,users:{},pcs:new Map(),pendingIce:new Map(),unsubP:null,unsubS:null,heartbeat:null,ice:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]}};
+
+function err(e){$('authError').textContent=e?.message||String(e);$('authError').classList.remove('hidden')}
+function path(kind,ch=S.ch){return collection(db,'artifacts',APP,'public','data',`${kind}_ch${ch}`)}
+function myPresence(ch=S.ch){return doc(db,'artifacts',APP,'public','data',`presence_ch${ch}`,S.uid)}
+function signalDoc(id,ch=S.ch){return doc(db,'artifacts',APP,'public','data',`signals_ch${ch}`,id)}
+async function loadIce(){
+  // Set window.WTALK_TURN_CREDENTIALS_URL to a server-side proxy returning Metered ICE servers.
+  const url=window.WTALK_TURN_CREDENTIALS_URL;
+  if(!url) return;
+  try{const r=await fetch(url,{credentials:'omit'});if(!r.ok)throw Error(`TURN HTTP ${r.status}`);const x=await r.json();S.ice={iceServers:[{urls:'stun:stun.l.google.com:19302'},...x]}}catch(e){console.warn(e)}
+}
+async function isAdmin(uid){try{return (await getDoc(doc(db,'admins',uid))).exists()}catch{return false}}
+async function publish(){if(!S.uid)return;await setDoc(myPresence(),{id:S.uid,name:S.name,isAdmin:S.admin,isTransmitting:S.tx,updatedAt:Date.now(),updatedAtServer:serverTimestamp()},{merge:true}).catch(console.warn)}
+async function removePresence(ch=S.ch){if(S.uid)await deleteDoc(myPresence(ch)).catch(()=>{})}
+
+async function enableMic(){
+  try{S.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});S.stream.getAudioTracks().forEach(t=>t.enabled=false);$('mic').classList.add('hidden');$('notice').textContent='Microphone ready. Hold PTT to transmit.';$('ptt').disabled=false;
+    for(const [id,pc] of S.pcs){if(!pc.getSenders().some(x=>x.track?.kind==='audio')){S.stream.getTracks().forEach(t=>pc.addTrack(t,S.stream));await makeOffer(id,pc)}}
+  }catch(e){$('notice').textContent=`Microphone unavailable: ${e.message}`}
+}
+function audioFor(peer){let a=document.getElementById(`audio-${peer}`);if(!a){a=document.createElement('audio');a.id=`audio-${peer}`;a.autoplay=true;a.playsInline=true;a.style.display='none';document.body.appendChild(a)}return a}
+function closePeer(id){const pc=S.pcs.get(id);if(pc)pc.close();S.pcs.delete(id);document.getElementById(`audio-${id}`)?.remove();status()}
+function createPeer(id){
+  if(S.pcs.has(id))return S.pcs.get(id);const pc=new RTCPeerConnection(S.ice);S.pcs.set(id,pc);
+  if(S.stream)S.stream.getTracks().forEach(t=>pc.addTrack(t,S.stream));
+  pc.onicecandidate=e=>e.candidate&&send({type:'ice',to:id,candidate:e.candidate.toJSON()});
+  pc.ontrack=e=>{const a=audioFor(id);a.srcObject=e.streams[0];a.play().catch(()=>{$('notice').textContent='Tap Enable microphone once to unlock incoming audio.'})};
+  pc.onconnectionstatechange=()=>{if(['failed','closed'].includes(pc.connectionState))closePeer(id);status()};status();return pc
+}
+async function makeOffer(id,pc=createPeer(id)){if(pc.signalingState!=='stable')return;const offer=await pc.createOffer();await pc.setLocalDescription(offer);await send({type:'offer',to:id,sdp:pc.localDescription.sdp})}
+async function send(data){const d=doc(path('signals'));await setDoc(d,{...data,from:S.uid,timestamp:Date.now()})}
+async function addQueuedIce(id,pc){for(const c of S.pendingIce.get(id)||[])await pc.addIceCandidate(c).catch(()=>{});S.pendingIce.delete(id)}
+async function handleSignal(sig,id){
+  try{const from=sig.from;let pc=createPeer(from);
+    if(sig.type==='offer'){if(pc.signalingState!=='stable'){pc.close();S.pcs.delete(from);pc=createPeer(from)}await pc.setRemoteDescription({type:'offer',sdp:sig.sdp});await addQueuedIce(from,pc);const ans=await pc.createAnswer();await pc.setLocalDescription(ans);await send({type:'answer',to:from,sdp:pc.localDescription.sdp})}
+    else if(sig.type==='answer'){await pc.setRemoteDescription({type:'answer',sdp:sig.sdp});await addQueuedIce(from,pc)}
+    else if(sig.type==='ice'&&sig.candidate){const c=new RTCIceCandidate(sig.candidate);if(pc.remoteDescription)await pc.addIceCandidate(c);else S.pendingIce.set(from,[...(S.pendingIce.get(from)||[]),c])}
+  }finally{deleteDoc(signalDoc(id)).catch(()=>{})}
+}
+function status(){$('rtc').textContent=S.pcs.size?`${S.pcs.size} PEER${S.pcs.size===1?'':'S'}`:'STANDBY';$('rtc').className=S.pcs.size?'text-emerald-400':'text-slate-400'}
+function render(){
+  const now=Date.now(), users=Object.values(S.users).filter(u=>now-(u.updatedAt||0)<20000);$('count').textContent=`${users.length} ONLINE`;$('roster').innerHTML='';
+  users.forEach(u=>{const d=document.createElement('div');d.className=`p-2 rounded border text-xs flex justify-between ${u.isTransmitting?'border-red-500 bg-red-950/50':'border-slate-800 bg-slate-900'}`;d.textContent=`${u.name}${u.id===S.uid?' (You)':''}${u.isAdmin?' • ADMIN':''}${u.isTransmitting?' • TX':''}`;$('roster').appendChild(d)});
+  const active=new Set(users.map(u=>u.id));for(const id of S.pcs.keys())if(!active.has(id))closePeer(id);for(const id of active)if(id!==S.uid&&!S.pcs.has(id)&&S.uid<id)makeOffer(id).catch(console.warn);
+  const tx=users.find(u=>u.isTransmitting&&u.id!==S.uid);$('talker').textContent=S.tx?'TRANSMITTING':tx?`${tx.name} TRANSMITTING`:'READY';
+}
+async function listen(){
+  S.unsubP?.();S.unsubS?.();S.unsubP=onSnapshot(path('presence'),snap=>{S.users={};snap.forEach(x=>S.users[x.id]=x.data());render()});
+  S.unsubS=onSnapshot(path('signals'),snap=>snap.docChanges().forEach(c=>{if(c.type==='added'&&c.doc.data().to===S.uid)handleSignal(c.doc.data(),c.doc.id).catch(console.warn)}));
+  clearInterval(S.heartbeat);S.heartbeat=setInterval(publish,5000);await publish()
+}
+async function switchChannel(ch){if(ch===S.ch)return;stopTx();const old=S.ch;S.unsubP?.();S.unsubS?.();await removePresence(old);for(const id of [...S.pcs.keys()])closePeer(id);S.ch=ch;$('chLabel').textContent=`CH-${ch}`;$('freq').textContent=FREQ[ch-1];drawChannels();await listen()}
+function drawChannels(){$('channels').innerHTML='';for(let i=1;i<=8;i++){const b=document.createElement('button');b.textContent=`CH-${i}`;b.className=`p-2 rounded text-xs font-bold border ${i===S.ch?'bg-emerald-600 text-slate-950 border-emerald-400':'bg-slate-900 border-slate-700'}`;b.onclick=()=>switchChannel(i);$('channels').appendChild(b)}}
+function startTx(){if(!S.stream||S.tx)return;S.tx=true;S.stream.getAudioTracks().forEach(t=>t.enabled=true);$('ptt').classList.add('tx');publish()}
+function stopTx(){if(!S.tx)return;S.tx=false;S.stream?.getAudioTracks().forEach(t=>t.enabled=false);$('ptt').classList.remove('tx');publish()}
+
+$('emailForm').onsubmit=async e=>{e.preventDefault();$('authError').classList.add('hidden');try{await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value)}catch(x){err(x)}};
+$('google').onclick=async()=>{const p=new GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});try{await signInWithPopup(auth,p)}catch(e){if(['auth/popup-blocked','auth/cancelled-popup-request','auth/operation-not-supported-in-this-environment'].includes(e.code))await signInWithRedirect(auth,p);else err(e)}};
+$('logout').onclick=async()=>{await removePresence();await signOut(auth)};$('mic').onclick=enableMic;
+for(const ev of ['pointerdown'])$('ptt').addEventListener(ev,e=>{e.preventDefault();startTx()});for(const ev of ['pointerup','pointercancel','pointerleave'])$('ptt').addEventListener(ev,e=>{e.preventDefault();stopTx()});
+addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){e.preventDefault();startTx()}});addEventListener('keyup',e=>{if(e.code==='Space'){e.preventDefault();stopTx()}});addEventListener('pagehide',()=>removePresence());document.addEventListener('visibilitychange',()=>{if(document.hidden)stopTx();else publish()});
+
+onAuthStateChanged(auth,async u=>{if(!u){S.uid=null;$('authModal').classList.remove('hidden');$('logout').classList.add('hidden');$('fb').textContent='SIGNED OUT';return}S.uid=u.uid;S.name=u.displayName||u.email?.split('@')[0]||'Operator';S.admin=await isAdmin(u.uid);$('who').textContent=S.name;$('role').textContent=S.admin?'ADMIN':'OPERATOR';$('role').className=S.admin?'h-fit px-2 py-1 text-[10px] border border-red-700 text-red-300 rounded':'h-fit px-2 py-1 text-[10px] border border-slate-700 rounded';$('authModal').classList.add('hidden');$('logout').classList.remove('hidden');$('fb').textContent='ONLINE';$('fb').className='text-emerald-400';await listen()});
+await getRedirectResult(auth).catch(err);await loadIce();drawChannels();lucide.createIcons();
+</script>
+</body></html>
