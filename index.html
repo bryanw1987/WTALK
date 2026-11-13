@@ -467,7 +467,7 @@
       }
     }
 
-    async function handleAnonymousLogin(callsign) {
+ async function handleAnonymousLogin(callsign) {
       hideAuthError();
       try {
         state.userName = callsign;
@@ -475,6 +475,8 @@
         updateRoleDisplay();
         await signInAnonymously(state.auth);
         elements.authModal.classList.add('hidden');
+        // FIX: Force immediate roster sync so they don't have to PTT to show up
+        publishPresence(); 
       } catch (err) {
         showAuthError(`Auth failed: ${err.message}`);
       }
@@ -488,6 +490,8 @@
         state.isAdmin = true;
         updateRoleDisplay();
         elements.authModal.classList.add('hidden');
+        // FIX: Force immediate roster sync
+        publishPresence(); 
       } catch (err) {
         showAuthError(`Admin Login Failed: ${err.message}`);
       }
@@ -660,6 +664,7 @@
         updateStatusUI();
       };
 
+      // AUDIO ROUTING FIX: Pure HTML5 element without Web Audio API hijack
       pc.ontrack = (event) => {
         const stream = event.streams[0];
         
@@ -668,12 +673,15 @@
             audioElement = document.createElement('audio');
             audioElement.id = 'audio-' + stream.id;
             audioElement.autoplay = true;
-            audioElement.playsInline = true;
+            audioElement.playsInline = true; // Critical for mobile browsers
             elements.remoteAudioContainer.appendChild(audioElement);
         }
         
         audioElement.srcObject = stream;
-        audioElement.play().catch(()=>{});
+        
+        audioElement.play().catch(e => {
+            logDiag(`Autoplay block: ${e.message}`, 'warn');
+        });
       };
 
       state.peerConnections[peerId] = pc;
