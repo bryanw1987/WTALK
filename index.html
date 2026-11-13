@@ -33,7 +33,7 @@
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-2">
           <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-          <span class="tracking-widest text-emerald-400 uppercase font-bold text-[11px]">TWALK WebRTC v1.2</span>
+          <span class="tracking-widest text-emerald-400 uppercase font-bold text-[11px]">TWALK WebRTC v1.25</span>
         </div>
         <button id="toggleDiagBtn" class="text-[10px] text-slate-400 hover:text-emerald-400 border border-slate-700 hover:border-emerald-500/50 px-2 py-0.5 rounded transition flex items-center space-x-1">
           <i data-lucide="activity" class="w-3 h-3"></i>
@@ -569,7 +569,7 @@
       });
     }
 
-    function setupChannelPresenceAndSignaling() {
+   function setupChannelPresenceAndSignaling() {
       if (!state.db || !state.userId || state.isBanned) return;
       if (state.unsubscribePresence) state.unsubscribePresence();
       if (state.unsubscribeSignals) state.unsubscribeSignals();
@@ -579,25 +579,14 @@
       const presenceRef = collection(state.db, 'artifacts', state.appId, 'public', 'data', `presence_ch${ch}`);
       state.unsubscribePresence = onSnapshot(presenceRef, (snapshot) => {
         const newUsers = {};
-        let selfExistsInRoster = false;
-        const now = Date.now();
 
         snapshot.forEach(doc => {
           const data = doc.data();
-          if (Math.abs(now - data.updatedAt) < 60000) {
-            newUsers[doc.id] = data;
-            if (doc.id === state.userId) selfExistsInRoster = true;
-          } else if (state.isAdmin && doc.id !== state.userId) {
-            deleteDoc(doc.ref).catch(()=>{});
-          }
+          newUsers[doc.id] = data;
         });
 
-        if (!selfExistsInRoster && state.isPresenceEstablished) {
-          logDiag("KICKED BY ADMIN", 'error');
-          alert("You have been kicked from the channel.");
-          window.location.reload(); 
-          return;
-        }
+        // REMOVED AUTO-KICK: The app will no longer automatically kick anyone. 
+        // You can still manually use the "Kick" button next to their name in the roster if needed.
 
         state.channelUsers = newUsers;
         updateRosterUI();
