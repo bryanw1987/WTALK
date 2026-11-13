@@ -17,7 +17,7 @@
 <body class="h-full bg-slate-950 p-2 flex items-center justify-center overflow-hidden">
 <main class="w-full max-w-md h-[96vh] max-h-[900px] bg-slate-900 border-2 border-slate-700 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
   <header class="p-3 border-b border-slate-800">
-    <div class="flex justify-between items-center"><b class="text-emerald-400 tracking-widest text-xs">WTALK WebRTC v1.35</b><button id="logout" class="hidden text-xs text-slate-400 hover:text-white">Sign out</button></div>
+    <div class="flex justify-between items-center"><b class="text-emerald-400 tracking-widest text-xs">WTALK WebRTC v1.35D AUDIO FIX</b><button id="logout" class="hidden text-xs text-slate-400 hover:text-white">Sign out</button></div>
     <div class="grid grid-cols-2 gap-2 mt-2 text-[10px] mono">
       <div class="bg-slate-950 border border-slate-800 rounded p-2">FIREBASE: <span id="fb" class="text-amber-400">INIT</span></div>
       <div class="bg-slate-950 border border-slate-800 rounded p-2">WEBRTC: <span id="rtc" class="text-slate-400">STANDBY</span></div>
@@ -76,7 +76,7 @@ import {getFirestore,doc,getDoc,setDoc,deleteDoc,collection,onSnapshot,serverTim
 const firebaseConfig={apiKey:'AIzaSyD_N9nYpXbh-TYrLEqhcoEmgWnNBDyvNxs',authDomain:'wtalk-222b2.firebaseapp.com',projectId:'wtalk-222b2',storageBucket:'wtalk-222b2.firebasestorage.app',messagingSenderId:'566131595670',appId:'1:566131595670:web:4b9143db08a23ba7b265b7'};
 const APP='wtalk-222b2', FREQ=['462.5625 MHz','462.5875 MHz','462.6125 MHz','462.6375 MHz','462.6625 MHz','462.6875 MHz','462.7125 MHz','467.5625 MHz'];
 const app=initializeApp(firebaseConfig), auth=getAuth(app), db=getFirestore(app);
-const $=id=>document.getElementById(id), S={uid:null,name:'',admin:false,callsignConfirmed:false,ch:1,stream:null,tx:false,users:{},pcs:new Map(),pendingIce:new Map(),remoteSources:new Map(),receiveContext:null,unsubP:null,unsubS:null,heartbeat:null,ice:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]}};
+const $=id=>document.getElementById(id), S={uid:null,name:'',admin:false,callsignConfirmed:false,ch:1,stream:null,tx:false,users:{},pcs:new Map(),pendingIce:new Map(),remoteSources:new Map(),receiveContext:null,audioUnlocked:false,unsubP:null,unsubS:null,heartbeat:null,ice:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]}};
 
 function err(e){$('authError').textContent=e?.message||String(e);$('authError').classList.remove('hidden')}
 function path(kind,ch=S.ch){return collection(db,'artifacts',APP,'public','data',`${kind}_ch${ch}`)}
@@ -92,25 +92,59 @@ async function removePresence(ch=S.ch){if(S.uid)await deleteDoc(myPresence(ch)).
 
 async function enableMic(){
   try{
-    if(!S.receiveContext)S.receiveContext=new (window.AudioContext||window.webkitAudioContext)();
-    if(S.receiveContext.state==='suspended')await S.receiveContext.resume();
-    S.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
-    S.stream.getAudioTracks().forEach(t=>t.enabled=false);
-    $('mic').classList.add('hidden');$('notice').textContent='Microphone and speaker ready. Hold PTT to transmit.';$('ptt').disabled=false;
-    for(const [id,pc] of S.pcs){
-      if(!pc.getSenders().some(x=>x.track?.kind==='audio')){S.stream.getTracks().forEach(t=>pc.addTrack(t,S.stream));await makeOffer(id,pc)}
-      const a=document.getElementById(`audio-${id}`);if(a){a.muted=false;a.volume=1;await a.play().catch(()=>{})}
+    if(!S.receiveContext) S.receiveContext=new (window.AudioContext||window.webkitAudioContext)();
+    if(S.receiveContext.state==='suspended') await S.receiveContext.resume();
+    S.audioUnlocked=true;
+
+    // Unlock every remote audio element inside this user gesture.
+    for(const a of document.querySelectorAll('audio[id^="audio-"]')){
+      a.muted=false;a.volume=1;await a.play().catch(()=>{});
     }
-  }catch(e){$('notice').textContent=`Audio unavailable: ${e.message}`}
+
+    if(!S.stream){
+      S.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+      S.stream.getAudioTracks().forEach(t=>t.enabled=false);
+    }
+
+    const micTrack=S.stream.getAudioTracks()[0];
+    for(const [id,pc] of S.pcs){
+      let sender=pc.getSenders().find(x=>x.track?.kind==='audio'||x.__wtalkAudioSender);
+      if(sender){await sender.replaceTrack(micTrack)}
+      else{sender=pc.addTrack(micTrack,S.stream);sender.__wtalkAudioSender=true;await makeOffer(id,pc)}
+    }
+
+    $('mic').classList.add('hidden');
+    $('notice').textContent='Microphone and speaker ready. Hold PTT to transmit.';
+    $('ptt').disabled=false;
+  }catch(e){$('notice').textContent=`Audio unavailable: ${e.message}`;console.error(e)}
 }
 function audioFor(peer){let a=document.getElementById(`audio-${peer}`);if(!a){a=document.createElement('audio');a.id=`audio-${peer}`;a.autoplay=true;a.playsInline=true;a.style.display='none';document.body.appendChild(a)}return a}
 function closePeer(id){const pc=S.pcs.get(id);if(pc)pc.close();S.pcs.delete(id);try{S.remoteSources.get(id)?.disconnect()}catch{}S.remoteSources.delete(id);document.getElementById(`audio-${id}`)?.remove();status()}
 function createPeer(id){
-  if(S.pcs.has(id))return S.pcs.get(id);const pc=new RTCPeerConnection(S.ice);S.pcs.set(id,pc);
-  if(S.stream)S.stream.getTracks().forEach(t=>pc.addTrack(t,S.stream));
+  if(S.pcs.has(id)) return S.pcs.get(id);
+  const pc=new RTCPeerConnection(S.ice);S.pcs.set(id,pc);
+
+  // Always negotiate an audio m-line, even if the microphone is enabled later.
+  const transceiver=pc.addTransceiver('audio',{direction:'sendrecv'});
+  transceiver.sender.__wtalkAudioSender=true;
+  if(S.stream?.getAudioTracks()[0]) transceiver.sender.replaceTrack(S.stream.getAudioTracks()[0]).catch(console.warn);
+
   pc.onicecandidate=e=>e.candidate&&send({type:'ice',to:id,candidate:e.candidate.toJSON()});
-  pc.ontrack=e=>{const stream=e.streams[0];const a=audioFor(id);a.srcObject=stream;a.muted=false;a.volume=1;a.play().catch(()=>{$('notice').textContent='Tap Enable microphone to unlock incoming audio.'});if(S.receiveContext&&!S.remoteSources.has(id)){try{const src=S.receiveContext.createMediaStreamSource(stream);src.connect(S.receiveContext.destination);S.remoteSources.set(id,src);if(S.receiveContext.state==='suspended')S.receiveContext.resume()}catch(err){console.warn(err)}}};
-  pc.onconnectionstatechange=()=>{if(['failed','closed'].includes(pc.connectionState))closePeer(id);status()};status();return pc
+  pc.ontrack=e=>{
+    const stream=e.streams[0]||new MediaStream([e.track]);
+    const a=audioFor(id);a.srcObject=stream;a.autoplay=true;a.playsInline=true;a.muted=false;a.volume=1;
+    const tryPlay=()=>a.play().then(()=>{$('notice').textContent='Remote audio connected.'}).catch(err=>{
+      $('notice').textContent='Tap Enable microphone once to unlock incoming audio.';
+      if(S.receiveContext&&!S.remoteSources.has(id)){
+        try{const src=S.receiveContext.createMediaStreamSource(stream);src.connect(S.receiveContext.destination);S.remoteSources.set(id,src);S.receiveContext.resume().catch(()=>{})}catch(e){console.warn(e)}
+      }
+      console.warn('Remote play blocked',err);
+    });
+    if(S.audioUnlocked) tryPlay();
+    e.track.onunmute=tryPlay;
+  };
+  pc.onconnectionstatechange=()=>{if(['failed','closed'].includes(pc.connectionState))closePeer(id);status()};
+  status();return pc
 }
 async function makeOffer(id,pc=createPeer(id)){if(pc.signalingState!=='stable')return;const offer=await pc.createOffer();await pc.setLocalDescription(offer);await send({type:'offer',to:id,sdp:pc.localDescription.sdp})}
 async function send(data){const d=doc(path('signals'));await setDoc(d,{...data,from:S.uid,timestamp:Date.now()})}
@@ -137,8 +171,8 @@ async function listen(){
 }
 async function switchChannel(ch){if(ch===S.ch)return;stopTx();const old=S.ch;S.unsubP?.();S.unsubS?.();await removePresence(old);for(const id of [...S.pcs.keys()])closePeer(id);S.ch=ch;$('chLabel').textContent=`CH-${ch}`;$('freq').textContent=FREQ[ch-1];drawChannels();await listen()}
 function drawChannels(){$('channels').innerHTML='';for(let i=1;i<=8;i++){const b=document.createElement('button');b.textContent=`CH-${i}`;b.className=`p-2 rounded text-xs font-bold border ${i===S.ch?'bg-emerald-600 text-slate-950 border-emerald-400':'bg-slate-900 border-slate-700'}`;b.onclick=()=>switchChannel(i);$('channels').appendChild(b)}}
-function startTx(){if(!S.stream||S.tx)return;S.tx=true;S.stream.getAudioTracks().forEach(t=>t.enabled=true);$('ptt').classList.add('tx');publish()}
-function stopTx(){if(!S.tx)return;S.tx=false;S.stream?.getAudioTracks().forEach(t=>t.enabled=false);$('ptt').classList.remove('tx');publish()}
+function startTx(){if(!S.stream||S.tx)return;const tracks=S.stream.getAudioTracks();if(!tracks.length||tracks[0].readyState!=='live'){$('notice').textContent='Microphone track is not live. Tap Enable microphone again.';return}S.tx=true;tracks.forEach(t=>t.enabled=true);$('ptt').classList.add('tx');$('notice').textContent='TRANSMITTING - microphone track live';publish()}
+function stopTx(){if(!S.tx)return;S.tx=false;S.stream?.getAudioTracks().forEach(t=>t.enabled=false);$('ptt').classList.remove('tx');$('notice').textContent='READY / RECEIVING';publish()}
 
 $('emailForm').onsubmit=async e=>{e.preventDefault();$('authError').classList.add('hidden');try{await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value)}catch(x){err(x)}};
 $('anonymous').onclick=async()=>{try{await signInAnonymously(auth)}catch(x){err(x)}};
