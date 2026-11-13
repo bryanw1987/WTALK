@@ -17,7 +17,7 @@
 <body class="h-full bg-slate-950 p-2 flex items-center justify-center overflow-hidden">
 <main class="w-full max-w-md h-[96vh] max-h-[900px] bg-slate-900 border-2 border-slate-700 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
   <header class="p-3 border-b border-slate-800">
-    <div class="flex justify-between items-center"><b class="text-emerald-400 tracking-widest text-xs">WTALK WebRTC v1.32</b><button id="logout" class="hidden text-xs text-slate-400 hover:text-white">Sign out</button></div>
+    <div class="flex justify-between items-center"><b class="text-emerald-400 tracking-widest text-xs">WTALK WebRTC v1.34</b><button id="logout" class="hidden text-xs text-slate-400 hover:text-white">Sign out</button></div>
     <div class="grid grid-cols-2 gap-2 mt-2 text-[10px] mono">
       <div class="bg-slate-950 border border-slate-800 rounded p-2">FIREBASE: <span id="fb" class="text-amber-400">INIT</span></div>
       <div class="bg-slate-950 border border-slate-800 rounded p-2">WEBRTC: <span id="rtc" class="text-slate-400">STANDBY</span></div>
@@ -88,7 +88,7 @@ async function loadIce(){
   if(!url) return;
   try{const r=await fetch(url,{credentials:'omit'});if(!r.ok)throw Error(`TURN HTTP ${r.status}`);const x=await r.json();S.ice={iceServers:[{urls:'stun:stun.l.google.com:19302'},...x]}}catch(e){console.warn(e)}
 }
-async function isAdmin(uid){try{return (await getDoc(doc(db,'admins',uid))).exists()}catch{return false}}
+async function isAdmin(uid){try{const snap=await getDoc(doc(db,'admins',uid));return snap.exists() && snap.data()?.enabled !== false}catch{return false}}
 async function publish(){if(!S.uid||!S.callsignConfirmed)return;await setDoc(myPresence(),{id:S.uid,name:S.name,isAdmin:S.admin,isTransmitting:S.tx,updatedAt:Date.now(),updatedAtServer:serverTimestamp()},{merge:true}).catch(console.warn)}
 async function removePresence(ch=S.ch){if(S.uid)await deleteDoc(myPresence(ch)).catch(()=>{})}
 
@@ -118,7 +118,7 @@ async function handleSignal(sig,id){
 }
 function status(){$('rtc').textContent=S.pcs.size?`${S.pcs.size} PEER${S.pcs.size===1?'':'S'}`:'STANDBY';$('rtc').className=S.pcs.size?'text-emerald-400':'text-slate-400'}
 function render(){
-  const now=Date.now(), users=Object.values(S.users).filter(u=>now-(u.updatedAt||0)<20000);$('count').textContent=`${users.length} ONLINE`;$('roster').innerHTML='';
+  const now=Date.now(), users=Object.values(S.users).filter(u=>{const serverMs=u.updatedAtServer?.toMillis?.();return !serverMs || (now-serverMs)<45000;});$('count').textContent=`${users.length} ONLINE`;$('roster').innerHTML='';
   users.forEach(u=>{const d=document.createElement('div');d.className=`p-2 rounded border text-xs flex justify-between ${u.isTransmitting?'border-red-500 bg-red-950/50':'border-slate-800 bg-slate-900'}`;d.textContent=`${u.name}${u.id===S.uid?' (You)':''}${u.isAdmin?' • ADMIN':''}${u.isTransmitting?' • TX':''}`;$('roster').appendChild(d)});
   const active=new Set(users.map(u=>u.id));for(const id of S.pcs.keys())if(!active.has(id))closePeer(id);for(const id of active)if(id!==S.uid&&!S.pcs.has(id)&&S.uid<id)makeOffer(id).catch(console.warn);
   const tx=users.find(u=>u.isTransmitting&&u.id!==S.uid);$('talker').textContent=S.tx?'TRANSMITTING':tx?`${tx.name} TRANSMITTING`:'READY';
