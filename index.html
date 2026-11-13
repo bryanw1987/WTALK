@@ -11,13 +11,13 @@
     body{font-family:'Chakra Petch',sans-serif}.mono{font-family:'Share Tech Mono',monospace}
     @keyframes pulse{0%{box-shadow:0 0 0 0 #ef4444aa}70%{box-shadow:0 0 0 24px #ef444400}100%{box-shadow:0 0 0 0 #ef444400}}
     .tx{animation:pulse 1.2s infinite}.scan{background:linear-gradient(transparent 50%,#0005 50%);background-size:100% 4px}
-    button,input{touch-action:manipulation}
+    button,input{touch-action:manipulation} #ptt{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:none} #ptt *{pointer-events:none;-webkit-user-select:none;user-select:none}
   </style>
 </head>
 <body class="h-full bg-slate-950 p-2 flex items-center justify-center overflow-hidden">
 <main class="w-full max-w-md h-[96vh] max-h-[900px] bg-slate-900 border-2 border-slate-700 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
   <header class="p-3 border-b border-slate-800">
-    <div class="flex justify-between items-center"><b class="text-emerald-400 tracking-widest text-xs">WTALK WebRTC v1.34</b><button id="logout" class="hidden text-xs text-slate-400 hover:text-white">Sign out</button></div>
+    <div class="flex justify-between items-center"><b class="text-emerald-400 tracking-widest text-xs">WTALK WebRTC v1.35</b><button id="logout" class="hidden text-xs text-slate-400 hover:text-white">Sign out</button></div>
     <div class="grid grid-cols-2 gap-2 mt-2 text-[10px] mono">
       <div class="bg-slate-950 border border-slate-800 rounded p-2">FIREBASE: <span id="fb" class="text-amber-400">INIT</span></div>
       <div class="bg-slate-950 border border-slate-800 rounded p-2">WEBRTC: <span id="rtc" class="text-slate-400">STANDBY</span></div>
@@ -76,34 +76,40 @@ import {getFirestore,doc,getDoc,setDoc,deleteDoc,collection,onSnapshot,serverTim
 const firebaseConfig={apiKey:'AIzaSyD_N9nYpXbh-TYrLEqhcoEmgWnNBDyvNxs',authDomain:'wtalk-222b2.firebaseapp.com',projectId:'wtalk-222b2',storageBucket:'wtalk-222b2.firebasestorage.app',messagingSenderId:'566131595670',appId:'1:566131595670:web:4b9143db08a23ba7b265b7'};
 const APP='wtalk-222b2', FREQ=['462.5625 MHz','462.5875 MHz','462.6125 MHz','462.6375 MHz','462.6625 MHz','462.6875 MHz','462.7125 MHz','467.5625 MHz'];
 const app=initializeApp(firebaseConfig), auth=getAuth(app), db=getFirestore(app);
-const $=id=>document.getElementById(id), S={uid:null,name:'',admin:false,callsignConfirmed:false,ch:1,stream:null,tx:false,users:{},pcs:new Map(),pendingIce:new Map(),unsubP:null,unsubS:null,heartbeat:null,ice:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]}};
+const $=id=>document.getElementById(id), S={uid:null,name:'',admin:false,callsignConfirmed:false,ch:1,stream:null,tx:false,users:{},pcs:new Map(),pendingIce:new Map(),remoteSources:new Map(),receiveContext:null,unsubP:null,unsubS:null,heartbeat:null,ice:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]}};
 
 function err(e){$('authError').textContent=e?.message||String(e);$('authError').classList.remove('hidden')}
 function path(kind,ch=S.ch){return collection(db,'artifacts',APP,'public','data',`${kind}_ch${ch}`)}
 function myPresence(ch=S.ch){return doc(db,'artifacts',APP,'public','data',`presence_ch${ch}`,S.uid)}
 function signalDoc(id,ch=S.ch){return doc(db,'artifacts',APP,'public','data',`signals_ch${ch}`,id)}
 async function loadIce(){
-  // Set window.WTALK_TURN_CREDENTIALS_URL to a server-side proxy returning Metered ICE servers.
-  const url=window.WTALK_TURN_CREDENTIALS_URL;
-  if(!url) return;
-  try{const r=await fetch(url,{credentials:'omit'});if(!r.ok)throw Error(`TURN HTTP ${r.status}`);const x=await r.json();S.ice={iceServers:[{urls:'stun:stun.l.google.com:19302'},...x]}}catch(e){console.warn(e)}
+  const url=window.WTALK_TURN_CREDENTIALS_URL || 'https://wtalk.metered.live/api/v1/turn/credentials?apiKey=4696c8ba71fbe0ccc3c4e8e285fa4b3bba96';
+  try{const r=await fetch(url,{credentials:'omit'});if(!r.ok)throw Error(`TURN HTTP ${r.status}`);const x=await r.json();S.ice={iceServers:[{urls:'stun:stun.l.google.com:19302'},...x]};$('notice').textContent='Network relay ready. Sign in and enable the microphone.'}catch(e){console.warn(e);$('notice').textContent='TURN unavailable. Local-network audio may still work.'}
 }
 async function isAdmin(uid){try{const snap=await getDoc(doc(db,'admins',uid));return snap.exists() && snap.data()?.enabled !== false}catch{return false}}
 async function publish(){if(!S.uid||!S.callsignConfirmed)return;await setDoc(myPresence(),{id:S.uid,name:S.name,isAdmin:S.admin,isTransmitting:S.tx,updatedAt:Date.now(),updatedAtServer:serverTimestamp()},{merge:true}).catch(console.warn)}
 async function removePresence(ch=S.ch){if(S.uid)await deleteDoc(myPresence(ch)).catch(()=>{})}
 
 async function enableMic(){
-  try{S.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});S.stream.getAudioTracks().forEach(t=>t.enabled=false);$('mic').classList.add('hidden');$('notice').textContent='Microphone ready. Hold PTT to transmit.';$('ptt').disabled=false;
-    for(const [id,pc] of S.pcs){if(!pc.getSenders().some(x=>x.track?.kind==='audio')){S.stream.getTracks().forEach(t=>pc.addTrack(t,S.stream));await makeOffer(id,pc)}}
-  }catch(e){$('notice').textContent=`Microphone unavailable: ${e.message}`}
+  try{
+    if(!S.receiveContext)S.receiveContext=new (window.AudioContext||window.webkitAudioContext)();
+    if(S.receiveContext.state==='suspended')await S.receiveContext.resume();
+    S.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+    S.stream.getAudioTracks().forEach(t=>t.enabled=false);
+    $('mic').classList.add('hidden');$('notice').textContent='Microphone and speaker ready. Hold PTT to transmit.';$('ptt').disabled=false;
+    for(const [id,pc] of S.pcs){
+      if(!pc.getSenders().some(x=>x.track?.kind==='audio')){S.stream.getTracks().forEach(t=>pc.addTrack(t,S.stream));await makeOffer(id,pc)}
+      const a=document.getElementById(`audio-${id}`);if(a){a.muted=false;a.volume=1;await a.play().catch(()=>{})}
+    }
+  }catch(e){$('notice').textContent=`Audio unavailable: ${e.message}`}
 }
 function audioFor(peer){let a=document.getElementById(`audio-${peer}`);if(!a){a=document.createElement('audio');a.id=`audio-${peer}`;a.autoplay=true;a.playsInline=true;a.style.display='none';document.body.appendChild(a)}return a}
-function closePeer(id){const pc=S.pcs.get(id);if(pc)pc.close();S.pcs.delete(id);document.getElementById(`audio-${id}`)?.remove();status()}
+function closePeer(id){const pc=S.pcs.get(id);if(pc)pc.close();S.pcs.delete(id);try{S.remoteSources.get(id)?.disconnect()}catch{}S.remoteSources.delete(id);document.getElementById(`audio-${id}`)?.remove();status()}
 function createPeer(id){
   if(S.pcs.has(id))return S.pcs.get(id);const pc=new RTCPeerConnection(S.ice);S.pcs.set(id,pc);
   if(S.stream)S.stream.getTracks().forEach(t=>pc.addTrack(t,S.stream));
   pc.onicecandidate=e=>e.candidate&&send({type:'ice',to:id,candidate:e.candidate.toJSON()});
-  pc.ontrack=e=>{const a=audioFor(id);a.srcObject=e.streams[0];a.play().catch(()=>{$('notice').textContent='Tap Enable microphone once to unlock incoming audio.'})};
+  pc.ontrack=e=>{const stream=e.streams[0];const a=audioFor(id);a.srcObject=stream;a.muted=false;a.volume=1;a.play().catch(()=>{$('notice').textContent='Tap Enable microphone to unlock incoming audio.'});if(S.receiveContext&&!S.remoteSources.has(id)){try{const src=S.receiveContext.createMediaStreamSource(stream);src.connect(S.receiveContext.destination);S.remoteSources.set(id,src);if(S.receiveContext.state==='suspended')S.receiveContext.resume()}catch(err){console.warn(err)}}};
   pc.onconnectionstatechange=()=>{if(['failed','closed'].includes(pc.connectionState))closePeer(id);status()};status();return pc
 }
 async function makeOffer(id,pc=createPeer(id)){if(pc.signalingState!=='stable')return;const offer=await pc.createOffer();await pc.setLocalDescription(offer);await send({type:'offer',to:id,sdp:pc.localDescription.sdp})}
@@ -138,7 +144,7 @@ $('emailForm').onsubmit=async e=>{e.preventDefault();$('authError').classList.ad
 $('anonymous').onclick=async()=>{try{await signInAnonymously(auth)}catch(x){err(x)}};
 $('google').onclick=async()=>{const p=new GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});try{await signInWithPopup(auth,p)}catch(e){if(['auth/popup-blocked','auth/cancelled-popup-request','auth/operation-not-supported-in-this-environment'].includes(e.code))await signInWithRedirect(auth,p);else err(e)}};
 $('logout').onclick=async()=>{await removePresence();await signOut(auth)};$('mic').onclick=enableMic;
-for(const ev of ['pointerdown'])$('ptt').addEventListener(ev,e=>{e.preventDefault();startTx()});for(const ev of ['pointerup','pointercancel','pointerleave'])$('ptt').addEventListener(ev,e=>{e.preventDefault();stopTx()});
+$('ptt').addEventListener('contextmenu',e=>e.preventDefault());$('ptt').addEventListener('selectstart',e=>e.preventDefault());$('ptt').addEventListener('pointerdown',e=>{e.preventDefault();try{$('ptt').setPointerCapture(e.pointerId)}catch{}startTx()},{passive:false});for(const ev of ['pointerup','pointercancel','lostpointercapture'])$('ptt').addEventListener(ev,e=>{e.preventDefault();stopTx()},{passive:false});
 addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){e.preventDefault();startTx()}});addEventListener('keyup',e=>{if(e.code==='Space'){e.preventDefault();stopTx()}});addEventListener('pagehide',()=>removePresence());document.addEventListener('visibilitychange',()=>{if(document.hidden)stopTx();else publish()});
 
 $('callsignForm').onsubmit=async e=>{e.preventDefault();const name=$('preJoinCallsign').value.trim().replace(/\s+/g,' ');if(!name)return;S.name=name;S.callsignConfirmed=true;localStorage.setItem(`wtalkCallsign:${S.uid}`,name);$('who').textContent=name;$('callsignModal').classList.add('hidden');$('notice').textContent='Callsign set. Enable the microphone when ready.';await listen()};
